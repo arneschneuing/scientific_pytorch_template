@@ -3,6 +3,45 @@ import os
 from itertools import product
 
 
+class CfgIterator:
+    """
+    Iterate over different configurations defined by a set of parameter lists
+    and corresponding keys
+    :param base_cfg: Base configuration from which selected parameters are
+        modified
+    :param param_combinations: Parameter lists
+    :param param_keys: List of key tuples defining configurations parameters
+    :param start_id: ID of the first parameter combination
+    """
+    def __init__(self, base_cfg, param_combinations, param_keys, start_id=0):
+        self._base_cfg = base_cfg
+        self._cfg = self._base_cfg.copy()
+        self._comb = param_combinations
+        self._keys = param_keys
+        self._k = start_id
+
+    def __iter__(self, k=0):
+        return self
+
+    def __next__(self):
+        # Iterate over parameter combinations
+        if self._k < len(self._comb):
+
+            # Update all variable parameters
+            for i in range(len(self._keys)):
+                self._set_in_dict(self._cfg, self._keys[i], self._comb[self._k][i])
+            self._k += 1
+            return self._cfg
+        else:
+            raise StopIteration
+
+    @staticmethod
+    def _set_in_dict(self, data_dict, key_list, value):
+        for key in key_list[:-1]:
+            data_dict = data_dict[key]
+        data_dict[key_list[-1]] = value
+
+
 class Controller:
     def __init__(self, cfg_path, result_dir, setup):
         self._experiment_id = self._create_folder_structure(result_dir, setup)
@@ -88,37 +127,9 @@ class Controller:
             return param_lists, param_keys
 
         param_lists, param_keys = get_param_lists(self._cfg)
-        print(param_lists)
-        print(param_keys)
         combinations = list(product(*param_lists))
-        n_combinations = len(combinations)
-        experiment_dicts = [self._cfg.copy() for _ in range(n_combinations)]
 
-        # Iterate over all combinations
-        for comb_id, comb in enumerate(combinations):
-
-            # Get dict container for current combination
-            tmp_dict = experiment_dicts[comb_id]
-
-            # Iterate over all parameters
-            for param_id, param_key in enumerate(param_keys):
-
-                # Iterate over all dict levels
-                tmp_dicts = []
-                for level, level_key in enumerate(param_key):
-                    # Get dict at current level
-                    if level == (len(param_key) - 1):
-                        tmp_dict[level_key] = comb[param_id]
-                    else:
-                        print(tmp_dict)
-                        tmp_dict = tmp_dict[level_key]
-                    tmp_dicts.append(tmp_dict)
-
-            for tmp_dict_id in range(len(tmp_dicts)-1, 1, -1):
-                tmp_dicts[tmp_dict_id-1].update(tmp_dicts[tmp_dict_id])
-
-            # Update experiment config for current combination
-            #experiment_dicts[comb_id].update(tmp_dicts[0])
-
-        for exp_dict in experiment_dicts:
-            print(exp_dict)
+        # Return configurations iterator object starting at the current
+        # experiment ID
+        return CfgIterator(self._cfg, combinations, param_keys,
+                           self._experiment_id - 1)
