@@ -4,12 +4,16 @@
 
 import os
 import torch
-from abc import abstractmethod
-from loggers.logger import Logger
-from trainers.monitor import Monitor
+from src.loggers.logger import Logger
+from src.trainers.monitor import Monitor
+from src.utilities import util
+import shutil
 
 
 class Trainer:
+
+    LOG_FREQ = 10
+
     """
     Trainer class
     :param result_dir:
@@ -20,7 +24,8 @@ class Trainer:
     :param cfg:
     :param data_loaders:
     """
-    def __init__(self, result_dir, model, criterion, metric_tracker, optimizer, cfg, data_loaders):
+    def __init__(self, result_dir, model, criterion, metric_tracker, optimizer,
+                 cfg, data_loaders):
         self._cfg = cfg
         self._result_dir = result_dir
         os.mkdir(result_dir)
@@ -47,8 +52,21 @@ class Trainer:
                                             default=self._num_iterations)
         self._monitor = Monitor(self._checkpoint_freq, patience)
 
-        if cfg.resume is not None:
-            self._resume_checkpoint(cfg.resume)
+        ckpt_path = self._resume_checkpoint()
+
+        if ckpt_path is None:
+            # Start new experiment
+            os.makedirs(self._result_dir, exist_ok=True)
+            self._it = 0
+            self._logger.log_string('Start training!')
+
+        else:
+            self._it, model_state_dict, optim_state_dict, self._monitor = \
+                self._load_checkpoint(ckpt_path)
+            self._model.load_state_dict(model_state_dict)
+            self._optimizer.load_state_dict(optim_state_dict)
+            self._logger.log_string(f'Resume training at iteration '
+                                    f'{self._it}!')
 
     def _get_scheduling_params(self, cfg):
         # Read from config file
@@ -82,57 +100,50 @@ class Trainer:
 
         return num_iterations, checkpoint_freq, val_freq, epoch_based
 
-    @abstractmethod
-    def _train_epoch(self, epoch):
-        """
-        Training logic for an epoch
-        :param epoch: Current epoch number
-        """
-        raise NotImplementedError
-
     def train(self):
-        """
-        Full training logic
-        """
-        not_improved_count = 0
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            result = self._train_epoch(epoch)
 
-            # save logged informations into log dict
-            log = {'epoch': epoch}
-            log.update(result)
+        while self._it < self._num_iterations:
 
-            # print logged informations to the screen
-            for key, value in log.items():
-                self.logger.info('    {:15s}: {}'.format(str(key), value))
+            rtn_dict, tb_dict = self._train_it()
 
-            # evaluate model performance according to configured metric, save best checkpoint as model_best
-            best = False
-            if self.mnt_mode != 'off':
-                try:
-                    # check whether model performance improved or not, according to specified metric(mnt_metric)
-                    improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
-                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
-                except KeyError:
-                    self.logger.warning("Warning: Metric '{}' is not found. "
-                                        "Model performance monitoring is disabled.".format(self.mnt_metric))
-                    self.mnt_mode = 'off'
-                    improved = False
+            # Tensorboard Logging
+            self._logger.tb.train()
+            for key, value in tb_dict.items():
+                self._logger.tb.add_scalar(key, value, self._it)
 
-                if improved:
-                    self.mnt_best = log[self.mnt_metric]
-                    not_improved_count = 0
-                    best = True
+            # Log Progress
+            if (self._it + 1) % self.LOG_FREQ == 0:
+                self._log_progress()
+
+            # Validate
+            if (self._it + 1) % self._val_freq == 0:
+                if self.epoch_based:
+                    epochs_trained = (self._it + 1) // \
+                                     len(self._data_loaders['train'])
+                    self._logger.log_string(f'#### Evaluation ('
+                                            f'{epochs_trained} Epochs '
+                                            f'trained)')
                 else:
-                    not_improved_count += 1
+                    self._logger.log_string(f'#### Evaluation ('
+                                            f'{self._it + 1} Iterations '
+                                            f'trained)')
+                score = self.evaluate(split='val')
 
-                if not_improved_count > self.early_stop:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
-                                     "Training stops.".format(self.early_stop))
+                # Update monitor
+                monitor_flags = self._monitor(score, self._it)
+
+                # Perform model saving
+                if monitor_flags.save_checkpoint:
+                    self._save_checkpoint()
+                if monitor_flags.new_best_model:
+                    self._save_checkpoint(save_best=True)
+                if monitor_flags.end_training:
                     break
 
-            if epoch % self.save_period == 0:
-                self._save_checkpoint(epoch, save_best=best)
+        self._logger.log_string('End Training')
+
+    def _train_it(self):
+        pass
 
     def _prepare_device(self, n_gpu):
         """
@@ -141,62 +152,106 @@ class Trainer:
         """
         n_gpu_available = torch.cuda.device_count()
         if n_gpu_available == 0 and n_gpu > 0:
-            self.logger.log_string("Warning: no GPU available, using CPU...")
+            self._logger.log_string("Warning: no GPU available, using CPU...")
             n_gpu = 0
         if n_gpu > n_gpu_available:
-            self.logger.log_string(f"Warning: not enough GPUs available, "
-                                   f"using {n_gpu_available} GPUs")
+            self._logger.log_string(f"Warning: not enough GPUs available, "
+                                    f"using {n_gpu_available} GPUs")
             n_gpu = n_gpu_available
         device = torch.device('cuda:0' if n_gpu > 0 else 'cpu')
         list_ids = list(range(n_gpu))
         return device, list_ids
 
-    def _save_checkpoint(self, epoch, save_best=False):
+    def _save_checkpoint(self, save_best=False):
         """
         Saving checkpoints
-        :param epoch: current epoch number
-        :param log: logging information of the epoch
-        :param save_best: if True, rename the saved checkpoint to 'model_best.pth'
+        :param save_best: if True, rename the saved checkpoint to
+        'best_model.pth'
         """
-        arch = type(self.model).__name__
-        state = {
-            'arch': arch,
-            'epoch': epoch,
-            'state_dict': self.model.state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'monitor_best': self.mnt_best,
-            'cfg': self.cfg
-        }
-        filename = str(self.checkpoint_dir / 'checkpoint-epoch{}.pth'.format(epoch))
-        torch.save(state, filename)
-        self.logger.info("Saving checkpoint: {} ...".format(filename))
-        if save_best:
-            best_path = str(self.checkpoint_dir / 'model_best.pth')
-            torch.save(state, best_path)
-            self.logger.info("Saving current best: model_best.pth ...")
 
-    def _resume_checkpoint(self, resume_path):
+        state = {
+            'iteration:': self._it,
+            'state_dict': self._model.state_dict(),
+            'optimizer': self._optimizer.state_dict(),
+            'monitor': self._monitor,
+        }
+
+        ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
+        if save_best:
+            ckpt_path = os.path.join(ckpt_dir, 'best_model.pth')
+        else:
+            if self.epoch_based:
+                epoch = (self._it + 1) // len(self._data_loaders['train'])
+                filename = f'ckpt_e{epoch}.pth'
+            else:
+                filename = f'ckpt_i{self._it+1}.pth'
+            ckpt_path = os.path.join(ckpt_dir, filename)
+        torch.save(state, ckpt_path)
+
+        self._logger.log_string(f'Saving checkpoint: {ckpt_path} ...')
+
+    def _resume_checkpoint(self):
         """
         Resume from saved checkpoints
-        :param resume_path: Checkpoint path to be resumed
         """
-        resume_path = str(resume_path)
-        self.logger.info("Loading checkpoint: {} ...".format(resume_path))
-        checkpoint = torch.load(resume_path)
-        self.start_epoch = checkpoint['epoch'] + 1
-        self.mnt_best = checkpoint['monitor_best']
 
-        # load architecture params from checkpoint.
-        if checkpoint['cfg']['arch'] != self.cfg['arch']:
-            self.logger.warning("Warning: Architecture configuration given in cfg file is different from that of "
-                                "checkpoint. This may yield an exception while state_dict is being loaded.")
-        self.model.load_state_dict(checkpoint['state_dict'])
+        ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
+        if os.path.isdir(ckpt_dir):
+            identifier = '_e' if self.epoch_based else '_i'
+            ckpt_filename = util.get_latest_version(ckpt_dir, identifier)
 
-        # load optimizer state from checkpoint only when optimizer type is not changed.
-        if checkpoint['cfg']['optimizer']['type'] != self.cfg['optimizer']['type']:
-            self.logger.warning("Warning: Optimizer type given in cfg file is different from that of checkpoint. "
-                                "Optimizer parameters not being resumed.")
+            if ckpt_filename is not None:
+                print(f'Found checkpoint {ckpt_filename}. '
+                      f'Resume/Overwrite/Exit? [r]/o/e')
+                c = input()
+                if c == 'r' or c == '':
+                    return ckpt_filename
+                elif c == 'o':
+                    shutil.rmtree(self._result_dir)
+                    print(f'Remove directory {self._result_dir}')
+                    return None
+                elif c == 'e':
+                    print('Exiting...')
+                    exit()
+                else:
+                    print('Wrong user input. Exiting...')
+                    exit(-1)
         else:
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            return None
 
-        self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
+    @staticmethod
+    def _load_checkpoint(ckpt_path):
+
+        checkpoint = torch.load(ckpt_path)
+        start_iteration = checkpoint['iteration'] + 1
+        monitor = checkpoint['monitor']
+        model_state_dict = checkpoint['state_dict']
+        optim_state_dict = checkpoint['optimizer']
+
+        return start_iteration, model_state_dict, optim_state_dict, monitor
+
+    def _log_progress(self):
+        """
+        Log training progress according to specified training scheme.
+        """
+
+        if self.epoch_based:
+
+            # Get number of current epoch
+            current_epoch = (self._it + 1) // \
+                            len(self._data_loaders['train']) + 1
+
+            # Get current iteration within epoch
+            epoch_it = (self._it + 1) % len(self._data_loaders['train'])
+
+            # Set progress string
+            prog_string = f'#### Epoch: {current_epoch} | ' \
+                          f'Iteration: {epoch_it}/' \
+                          f'{len(self._data_loaders["train"])} ####'
+        else:
+            # Set progress string
+            prog_string = f'#### Iteration: {self._it + 1}/' \
+                          f'{self._num_iterations} ####'
+
+        # Log string
+        self._logger.log_string(prog_string)

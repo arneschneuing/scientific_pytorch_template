@@ -10,7 +10,7 @@ class Monitor:
     MonitorFlags = namedtuple('MonitorFlags', ['save_ckpt', 'new_best_model',
                                                'end_training'])
 
-    def __init__(self, ckpt_freq, patience):
+    def __init__(self, ckpt_freq, patience, num_iterations, val_freq):
         """
         Class to monitor training process. Handles checkpoint saving and early
         stopping.
@@ -23,8 +23,11 @@ class Monitor:
 
         self._patience = patience
         self._counter = 0
+        self._num_iterations = num_iterations
         self._ckpt_freq = ckpt_freq
+        self._val_freq = val_freq
         self._best_score = None
+        self._best_iteration = None
 
     def __call__(self, score, iteration):
 
@@ -40,6 +43,7 @@ class Monitor:
         # First call
         if self._best_score is None:
             self._best_score = score
+            self.
             new_best_model = True
 
         # Score didn't increase
@@ -59,6 +63,10 @@ class Monitor:
 
             # Reset counter
             self.counter = 0
+
+        # Check if validation phase left before end of scheduled training
+        if (iteration + 1) > (self._num_iterations - self._val_freq):
+            stop_training = True
 
         return self.MonitorFlags(save_checkpoint, new_best_model,
                                  stop_training)
