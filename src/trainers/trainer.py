@@ -11,9 +11,6 @@ import shutil
 
 
 class Trainer:
-
-    LOG_FREQ = 10
-
     """
     Trainer class
     :param result_dir:
@@ -45,88 +42,36 @@ class Trainer:
         self._metric_tracker = metric_tracker
         self._optimizer = optimizer
 
-        self._num_iterations, self._checkpoint_freq, self._val_freq, \
-            self.epoch_based = self._get_scheduling_params(cfg)
-
-        patience = self._cfg['Monitor'].get('patience',
-                                            default=self._num_iterations)
-        self._monitor = Monitor(self._checkpoint_freq, patience)
-
         ckpt_path = self._resume_checkpoint()
 
         if ckpt_path is None:
             # Start new experiment
             os.makedirs(self._result_dir, exist_ok=True)
-            self._it = 0
+            self._monitor = Monitor(cfg, len(self._data_loaders['train']),
+                                    log_fn=self._logger.log_string)
             self._logger.log_string('Start training!')
 
         else:
-            self._it, model_state_dict, optim_state_dict, self._monitor = \
+            model_state_dict, optim_state_dict, self._monitor = \
                 self._load_checkpoint(ckpt_path)
             self._model.load_state_dict(model_state_dict)
             self._optimizer.load_state_dict(optim_state_dict)
             self._logger.log_string(f'Resume training at iteration '
-                                    f'{self._it}!')
-
-    def _get_scheduling_params(self, cfg):
-        # Read from config file
-        num_epochs = cfg['Train'].get('num_epochs', default=None)
-        num_iterations = cfg['Train'].get('num_iterations', default=None)
-        checkpoint_freq = cfg['Train'].get('checkpoint_freq', default=None)
-        val_freq = cfg['Train'].get('val_freq', default=None)
-
-        if num_epochs is None and num_iterations is None:
-            self._logger.log_string('Error: please specify the training '
-                                    'duration using num_epochs or '
-                                    'num_iterations in config file')
-            exit(-1)
-        if num_epochs is not None and num_iterations is not None:
-            self._logger.log_string('Error: training duration is ambiguous, '
-                                    'num_epochs and num_iterations are '
-                                    'specified in config file')
-            exit(-1)
-
-        if num_iterations is None:
-            # epoch-based training
-            num_iterations = len(self._data_loaders['train']) * num_epochs
-            checkpoint_freq = num_iterations if checkpoint_freq is None \
-                else len(self._data_loaders['train']) * checkpoint_freq
-            val_freq = len(self._data_loaders['train']) if val_freq is None \
-                else len(self._data_loaders['train']) * val_freq
-            epoch_based = True
-        else:
-            # iteration-based training
-            epoch_based = False
-
-        return num_iterations, checkpoint_freq, val_freq, epoch_based
+                                    f'{self._monitor.it}!')
 
     def train(self):
 
-        while self._it < self._num_iterations:
+        while True:
 
             rtn_dict, tb_dict = self._train_it()
 
             # Tensorboard Logging
             self._logger.tb.train()
             for key, value in tb_dict.items():
-                self._logger.tb.add_scalar(key, value, self._it)
-
-            # Log Progress
-            if (self._it + 1) % self.LOG_FREQ == 0:
-                self._log_progress()
+                self._logger.tb.add_scalar(key, value, self._monitor.it)
 
             # Validate
-            if (self._it + 1) % self._val_freq == 0:
-                if self.epoch_based:
-                    epochs_trained = (self._it + 1) // \
-                                     len(self._data_loaders['train'])
-                    self._logger.log_string(f'#### Evaluation ('
-                                            f'{epochs_trained} Epochs '
-                                            f'trained)')
-                else:
-                    self._logger.log_string(f'#### Evaluation ('
-                                            f'{self._it + 1} Iterations '
-                                            f'trained)')
+            if (self._monitor.it + 1) % self._monitor._val_freq == 0:
                 score = self.evaluate(split='val')
 
                 # Update monitor
@@ -140,7 +85,11 @@ class Trainer:
                 if monitor_flags.end_training:
                     break
 
-        self._logger.log_string('End Training')
+            # Increase monitor's internal iteration counter
+            self._monitor.update()
+
+        self._logger.log_string(f'End of training at iteration '
+                                f'{self._monitor.it}')
 
     def _train_it(self):
         pass
@@ -170,7 +119,6 @@ class Trainer:
         """
 
         state = {
-            'iteration:': self._it,
             'state_dict': self._model.state_dict(),
             'optimizer': self._optimizer.state_dict(),
             'monitor': self._monitor,
@@ -180,11 +128,12 @@ class Trainer:
         if save_best:
             ckpt_path = os.path.join(ckpt_dir, 'best_model.pth')
         else:
-            if self.epoch_based:
-                epoch = (self._it + 1) // len(self._data_loaders['train'])
+            if self._monitor.epoch_based:
+                epoch = (self._monitor.it + 1) // \
+                        len(self._data_loaders['train'])
                 filename = f'ckpt_e{epoch}.pth'
             else:
-                filename = f'ckpt_i{self._it+1}.pth'
+                filename = f'ckpt_i{self._monitor.it + 1}.pth'
             ckpt_path = os.path.join(ckpt_dir, filename)
         torch.save(state, ckpt_path)
 
@@ -197,7 +146,7 @@ class Trainer:
 
         ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
         if os.path.isdir(ckpt_dir):
-            identifier = '_e' if self.epoch_based else '_i'
+            identifier = '_e' if self._monitor.epoch_based else '_i'
             ckpt_filename = util.get_latest_version(ckpt_dir, identifier)
 
             if ckpt_filename is not None:
@@ -223,35 +172,8 @@ class Trainer:
     def _load_checkpoint(ckpt_path):
 
         checkpoint = torch.load(ckpt_path)
-        start_iteration = checkpoint['iteration'] + 1
         monitor = checkpoint['monitor']
         model_state_dict = checkpoint['state_dict']
         optim_state_dict = checkpoint['optimizer']
 
-        return start_iteration, model_state_dict, optim_state_dict, monitor
-
-    def _log_progress(self):
-        """
-        Log training progress according to specified training scheme.
-        """
-
-        if self.epoch_based:
-
-            # Get number of current epoch
-            current_epoch = (self._it + 1) // \
-                            len(self._data_loaders['train']) + 1
-
-            # Get current iteration within epoch
-            epoch_it = (self._it + 1) % len(self._data_loaders['train'])
-
-            # Set progress string
-            prog_string = f'#### Epoch: {current_epoch} | ' \
-                          f'Iteration: {epoch_it}/' \
-                          f'{len(self._data_loaders["train"])} ####'
-        else:
-            # Set progress string
-            prog_string = f'#### Iteration: {self._it + 1}/' \
-                          f'{self._num_iterations} ####'
-
-        # Log string
-        self._logger.log_string(prog_string)
+        return model_state_dict, optim_state_dict, monitor
