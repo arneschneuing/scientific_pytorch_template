@@ -34,3 +34,15 @@ def get_latest_version(dir, token):
             curr_max_count = count
             curr_latest = filename
     return curr_latest
+
+
+if __name__ == "__main__":
+    string1 = "test-epoch100epoch10.pth"
+    string2 = "test-iter5.pth"
+    print(get_number(string1, "epoch"))
+    print(get_number(string2, "iter"))
+    print(get_number(string1, "iter"))
+    print("---")
+    print(get_latest_version("../Results/Test_setup", "test"))
+    print("---")
+    print(get_latest_version("../Results/", "setup"))

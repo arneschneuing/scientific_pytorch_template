@@ -50,7 +50,7 @@ class Controller:
 
     @staticmethod
     def _read_config_file(cfg_path):
-        # Read-in config file
+        # Read-in cfg file
         with open(cfg_path, 'r') as f:
             cfg = yaml.safe_load(f)
         return cfg
@@ -80,15 +80,15 @@ class Controller:
 
     def _split_config(self):
         """
-        Split setup-level config dict into experiment-level config dicts.
-        :return: list of experiment-level config dicts
+        Split setup-level cfg dict into experiment-level cfg dicts.
+        :return: list of experiment-level cfg dicts
         """
 
         def get_param_lists(cfg_dict, param_lists=None, param_keys=None,
                             prefix=None):
             """
             Recursively get a list of all parameters for which a list of values
-            was specified in the config file. Required to construct all
+            was specified in the cfg file. Required to construct all
             possible parameter permutations.
             :param cfg_dict: dict from which to extract parameter lists
             :param param_lists: list to which to append parameter lists
@@ -104,7 +104,7 @@ class Controller:
 
                 # Append list of parameter values to param_lists
                 # Append tuple of necessary keys to access param in original
-                # config dict
+                # cfg dict
                 if isinstance(param_value, list):
                     param_lists.append(param_value)
                     if prefix is not None:
@@ -113,7 +113,7 @@ class Controller:
                         param_keys.append(tuple([param_name]))
 
                 # Call function recursively to extract parameter lists at
-                # arbitrary levels of the config dict
+                # arbitrary levels of the cfg dict
                 if isinstance(param_value, dict):
                     if prefix is None:
                         sub_prefix = tuple([param_name])
