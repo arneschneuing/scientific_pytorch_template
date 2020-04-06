@@ -1,5 +1,5 @@
 import argparse
-from trainers.controller import Controller
+from src.trainers.controller import Controller
 
 # Argument parser
 parser = argparse.ArgumentParser(description="arg parser")
@@ -12,3 +12,6 @@ args = parser.parse_args()
 # Create controller
 controller = Controller(cfg_path=args.cfg, result_dir=args.result_dir,
                         setup=args.setup)
+
+# Start main loop
+controller.start()

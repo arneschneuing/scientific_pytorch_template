@@ -1,9 +1,11 @@
 import os
 import torch
+import shutil
 from src.loggers.logger import Logger
 from src.trainers.monitor import Monitor
 from src.utilities import util
-import shutil
+from src.utilities.build_components import build_model, build_criterion, \
+    build_optimizer, build_metric_tracker
 
 
 class Trainer:
@@ -17,27 +19,29 @@ class Trainer:
     :param cfg:
     :param data_loaders:
     """
-    def __init__(self, result_dir, model, criterion, metric_tracker, optimizer,
-                 cfg, data_loaders):
+    def __init__(self, result_dir, cfg, data_loaders):
         self._cfg = cfg
         self._result_dir = result_dir
         os.mkdir(result_dir)
+        self._data_loaders = data_loaders
         self._logger = Logger(result_dir,
                               cfg['Logging'].get('write_file', default=True),
                               cfg['Logging'].get('write_tb', default=True))
-        self._data_loaders = data_loaders
+
+        # Build components
+        self._model = build_model(cfg)
+        self._criterion = build_criterion(cfg)
+        self._metric_tracker = build_metric_tracker(cfg)
+        self._optimizer = build_optimizer(cfg)
 
         # Use GPUs if available
         self._device, device_ids = self._prepare_device(cfg['n_gpu'])
-        self._model = model.to(self._device)
+        self._model = self._model.to(self._device)
         if len(device_ids) > 1:
             self._model = torch.nn.DataParallel(self._model,
                                                 device_ids=device_ids)
 
-        self._criterion = criterion
-        self._metric_tracker = metric_tracker
-        self._optimizer = optimizer
-
+        # Resume from checkpoint if possible
         ckpt_path = self._resume_checkpoint()
 
         if ckpt_path is None:
@@ -85,6 +89,9 @@ class Trainer:
         self._monitor.log_summary()
 
     def _train_it(self):
+        pass
+
+    def evaluate(self, split):
         pass
 
     def _prepare_device(self, n_gpu):

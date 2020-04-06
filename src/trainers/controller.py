@@ -2,6 +2,7 @@ import yaml
 import os
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
+from src.trainers.trainer import Trainer
 
 
 class Controller:
@@ -95,3 +96,10 @@ class Controller:
         # experiment ID
         return CfgIterator(self._cfg, combinations, param_keys,
                            self._experiment_id - 1)
+
+    def start(self):
+        for cfg in self._experiment_cfgs:
+            experiment_dir = f"Experiment {self._experiment_id}"
+            Trainer(experiment_dir, model, criterion, metric_tracker,
+                    optimizer, cfg, data_loaders).train()
+            self._experiment_id += 1
