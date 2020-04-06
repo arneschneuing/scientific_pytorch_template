@@ -1,9 +1,10 @@
 from copy import deepcopy
 
+
 class CfgIterator:
     """
     Iterate over different configurations defined by a set of parameter lists
-    and corresponding keys
+    and corresponding keys.
     :param base_cfg: Base configuration from which selected parameters are
         modified
     :param param_combinations: Parameter lists
@@ -12,7 +13,7 @@ class CfgIterator:
     """
     def __init__(self, base_cfg, param_combinations, param_keys, start_id=0):
         self._base_cfg = base_cfg
-        self._cfg = deepcopy(self._base_cfg)
+        # TODO: self._cfg = deepcopy(self._base_cfg) - relevant?
         self._comb = param_combinations
         self._keys = param_keys
         self._k = start_id
@@ -21,10 +22,13 @@ class CfgIterator:
         return self
 
     def __next__(self):
+
         # Iterate over parameter combinations
         if self._k < len(self._comb):
-            # Return base config if there is only a single parameter combination
+            # Return base config if there is only a single parameter
+            # combination
             if len(self._comb) > 1:
+
                 # Re-initialize config file
                 self._cfg = deepcopy(self._base_cfg)
 
@@ -32,7 +36,10 @@ class CfgIterator:
                 for i in range(len(self._keys)):
                     self._set_in_dict(self._cfg, self._keys[i],
                                       self._comb[self._k][i])
+
+            # Increment counter
             self._k += 1
+
             return self._cfg
         else:
             raise StopIteration
@@ -44,5 +51,5 @@ class CfgIterator:
 
         # Remove trailing underscore and assign value
         data_dict[key_list[-1].strip("_")] = value
-        # Delete hyperparameter list
+        # Delete hyper-parameter list
         del data_dict[key_list[-1]]
