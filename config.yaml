@@ -1,9 +1,9 @@
 epochs: 40
 batch_size: 8
-learning_rate: [0.1, 0.01]
+learning_rate_: [0.1, 0.01]
 
 cutout_args:
   size: 0.1
-  width: [0.1, 0.5]
+  width_: [0.1, 0.5]
   args:
-    height: [2.0, 5.0]
+    height_: [2.0, 5.0]
