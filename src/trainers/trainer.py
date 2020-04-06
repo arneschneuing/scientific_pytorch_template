@@ -1,7 +1,3 @@
-# Code adapted from:
-# https://github.com/victoresque/pytorch-template/blob/master/base/
-# base_trainer.py
-
 import os
 import torch
 from src.loggers.logger import Logger
@@ -61,7 +57,7 @@ class Trainer:
 
     def train(self):
 
-        while True:
+        while not self._monitor.flags.end_training:
 
             rtn_dict, tb_dict = self._train_it()
 
@@ -71,25 +67,22 @@ class Trainer:
                 self._logger.tb.add_scalar(key, value, self._monitor.it)
 
             # Validate
-            if (self._monitor.it + 1) % self._monitor._val_freq == 0:
+            if self._monitor.do_validation():
                 score = self.evaluate(split='val')
 
                 # Update monitor
-                monitor_flags = self._monitor(score, self._it)
+                self._monitor(score)
 
                 # Perform model saving
-                if monitor_flags.save_checkpoint:
+                if self._monitor.flags.save_checkpoint:
                     self._save_checkpoint()
-                if monitor_flags.new_best_model:
+                if self._monitor.flags.new_best_model:
                     self._save_checkpoint(save_best=True)
-                if monitor_flags.end_training:
-                    break
 
             # Increase monitor's internal iteration counter
             self._monitor.update()
 
-        self._logger.log_string(f'End of training at iteration '
-                                f'{self._monitor.it}')
+        self._monitor.log_summary()
 
     def _train_it(self):
         pass
@@ -97,6 +90,9 @@ class Trainer:
     def _prepare_device(self, n_gpu):
         """
         Manage GPU setup
+        Code adapted from:
+        https://github.com/victoresque/pytorch-template/blob/master/base/
+        base_trainer.py
         :param n_gpu: intended number of GPUs
         """
         n_gpu_available = torch.cuda.device_count()

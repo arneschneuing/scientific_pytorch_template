@@ -15,20 +15,21 @@ class Monitor:
                                                'end_training'])
 
     def __init__(self, cfg, batches_per_epoch, log_fn):
-
         self._cfg = cfg
         self._batches_per_epoch = batches_per_epoch
         self._log_fn = log_fn
 
-        self.it = 0
         self._patience = self._cfg['Monitor'].get('patience',
                                                   default=self._num_iterations)
         self._counter = 0
         self._best_score = None
         self._best_iteration = None
 
+        self.it = 0
         self._num_iterations, self._ckpt_freq, self._val_freq, \
             self.epoch_based = self._get_scheduling_params(cfg)
+
+        self.flags = self.MonitorFlags(False, False, False)
 
     def __call__(self, score):
 
@@ -51,6 +52,7 @@ class Monitor:
         # First call
         if self._best_score is None:
             self._best_score = score
+            self._best_iteration = self.it
             new_best_model = True
 
         # Score didn't increase
@@ -75,8 +77,16 @@ class Monitor:
         if (self.it + 1) > (self._num_iterations - self._val_freq):
             stop_training = True
 
-        return self.MonitorFlags(save_checkpoint, new_best_model,
-                                 stop_training)
+        # Update monitor flags
+        self.flags = self.MonitorFlags(save_checkpoint, new_best_model,
+                                       stop_training)
+
+    def do_validation(self):
+        """
+        Trigger validation
+        :return: True/False
+        """
+        return (self.it + 1) % self._val_freq == 0
 
     def update(self, step=1):
         """
@@ -87,7 +97,8 @@ class Monitor:
         if (self.it + 1) % self.LOG_FREQ == 0:
             self._log_progress()
 
-        self.it += 1
+        if not self.flags.end_training:
+            self.it += 1
 
     def _get_scheduling_params(self, cfg):
         # Read from config file
@@ -119,6 +130,22 @@ class Monitor:
 
         return num_iterations, checkpoint_freq, val_freq, epoch_based
 
+    def _i2e(self, iteration=None):
+        """
+        Convert number of iterations to epoch based representation
+        :return: current epoch and iteration in epoch
+        """
+        if iteration is None:
+            iteration = self.it
+
+        # Get number of current epoch
+        epoch = (iteration + 1) // self._batches_per_epoch + 1
+
+        # Get current iteration within epoch
+        epoch_it = (iteration + 1) % self._batches_per_epoch
+
+        return epoch, epoch_it
+
     def _log_progress(self):
         """
         Log training progress according to specified training scheme.
@@ -126,11 +153,8 @@ class Monitor:
 
         if self.epoch_based:
 
-            # Get number of current epoch
-            current_epoch = (self.it + 1) // self._batches_per_epoch + 1
-
-            # Get current iteration within epoch
-            epoch_it = (self.it + 1) % self._batches_per_epoch
+            # Get number of current epoch and iteration
+            current_epoch, epoch_it = self._i2e()
 
             # Set progress string
             prog_string = f'#### Epoch: {current_epoch} | ' \
@@ -143,3 +167,47 @@ class Monitor:
 
         # Log string
         self._log_fn(prog_string)
+
+    def log_summary(self):
+        """
+        Log a summary string
+        """
+
+        if self.epoch_based:
+            # Get number of current epoch and iteration
+            epoch, epoch_it = self._i2e()
+
+            # Set progress string
+            prog_string = f'Epoch: {epoch(self.it)} | Iteration: {epoch_it}/' \
+                          f'{self._batches_per_epoch}'
+
+            # Set best model string
+            best_epoch, best_epoch_it = self._i2e(self._best_iteration)
+            best_model_string = f'Best model trained for ' \
+                                f'{best_epoch} epochs ({best_epoch_it} ' \
+                                f'iterations) achieved score of ' \
+                                f'{self._best_score}.\n'
+        else:
+            # Set progress string
+            prog_string = f'Iteration: {self.it + 1}/{self._num_iterations}'
+
+            # Set best model string
+            best_model_string = f'Best model trained for ' \
+                                f'{self._best_iteration + 1} iterations ' \
+                                f'achieved score of {self._best_score}.\n'
+
+        if self._counter > self._patience:
+            cause_of_stop = f"Training stopped because validation score " \
+                            f"did not increase for {self._counter} " \
+                            f"validation cycles.\n"
+        else:
+            cause_of_stop = "Training stopped because number of outstanding " \
+                            "iterations went below the length of one " \
+                            "validation period.\n"
+
+        # Assemble output string
+        summary_string = f"End of training ({prog_string})\n" + cause_of_stop \
+                         + best_model_string
+
+        # Log string
+        self._log_fn(summary_string)
