@@ -6,9 +6,30 @@ from src.trainers.trainer import Trainer
 
 
 class Controller:
-    def __init__(self, cfg_path, result_dir, setup):
+    """
+    Controller class to handle the scheduling of one or more training runs.
+    The controller takes a path to a config file that can contain parameter
+    lists specifying values for several runs, e.g. for hyper-parameter
+    optimization. Single training runs will be started for each parameter
+    configuration.
+    """
+    def __init__(self, cfg_path, result_dir, setup=None):
+        """
+        :param cfg_path: string |relative path to the YAML config file
+        :param result_dir: string | relative path to the result directory where
+        logs, checkpoints and other outputs will be saved
+        :param setup: string | name of the setup to continue experiments |
+        Default: None -> Create new setup directory
+        """
+
+        # Get ID of next experiment to be performed
         self._experiment_id = self._create_folder_structure(result_dir, setup)
+
+        # Set config file for current setup
         self._cfg = self._read_config_file(cfg_path)
+
+        # Extract config files for each parameter configuration in current
+        # setup
         self._experiment_cfgs = self._split_config()
 
     @staticmethod
@@ -20,6 +41,12 @@ class Controller:
 
     @staticmethod
     def _create_folder_structure(result_dir, setup):
+        """
+        Create required directories for the saving of experimental results.
+        :param result_dir: string | relative path to result directory
+        :param setup: string | name of the current setup
+        :return:
+        """
 
         # Create result dir
         os.makedirs(result_dir, exist_ok=True)
@@ -27,28 +54,29 @@ class Controller:
         # Check if setup dir already exists
         setup_path = os.path.join(result_dir, setup)
         if os.path.isdir(setup_path):
-                print(f'Directory {setup_path} already exists. Append? [y]/n')
-                c = input()
-                if c == 'n':
-                    print('Exiting...')
-                    exit()
-                elif c == 'y' or c == '':
-                    print(f'Append experiments to {setup_path}.')
+            print(f'Directory {setup_path} already exists. Continue '
+                  f'training? [y]/n')
+            c = input()
+            if c == 'n':
+                print('Exiting...')
+                exit()
+            elif c == 'y' or c == '':
+                print(f'Continue experiments in {setup_path}.')
 
         else:
             os.makedirs(setup_path)
-            print(f'Create directory {setup_path}.')
+            print(f'Create new setup in directory {setup_path}.')
 
         return len(os.listdir(setup_path)) + 1
 
     def _split_config(self):
         """
         Split setup-level cfg dict into experiment-level cfg dicts.
-        :return: list of experiment-level cfg dicts
+        :return: iterator of experiment-level cfg dicts
         """
 
         def get_param_lists(cfg_dict, param_lists=None, param_keys=None,
-                            prefix=None):
+                            key_prefix=None):
             """
             Recursively get a list of all parameters for which a list of values
             was specified in the cfg file. Required to construct all
@@ -56,40 +84,47 @@ class Controller:
             :param cfg_dict: dict from which to extract parameter lists
             :param param_lists: list to which to append parameter lists
             :param param_keys: list to which to append key tuple
-            :param prefix: prefix key to indicate higher level dict keys
+            :param key_prefix: prefix key to indicate higher level dict keys
             :return: param_lists, param_keys
             """
 
+            # Create empty lists on first call
             if param_lists is None and param_keys is None:
                 param_lists, param_keys = [], []
 
-            for param_name, param_value in cfg_dict.items():
+            # Iterate over all first-level items of the current dict
+            for param_key, param_item in cfg_dict.items():
 
                 # Append list of parameter values to param_lists
                 # Append tuple of necessary keys to access param in original
                 # cfg dict
-                if isinstance(param_value, list) and param_name[-1] == "_":
-                    param_lists.append(param_value)
-                    if prefix is not None:
-                        param_keys.append(prefix + tuple([param_name]))
+                if isinstance(param_item, list) and param_key[-1] == "_":
+                    param_lists.append(param_item)
+                    if key_prefix is not None:
+                        param_keys.append(key_prefix + tuple([param_key]))
                     else:
-                        param_keys.append(tuple([param_name]))
+                        param_keys.append(tuple([param_key]))
 
                 # Call function recursively to extract parameter lists at
                 # arbitrary levels of the cfg dict
-                if isinstance(param_value, dict):
-                    if prefix is None:
-                        sub_prefix = tuple([param_name])
+                if isinstance(param_item, dict):
+                    if key_prefix is None:
+                        sub_prefix = tuple([param_key])
                     else:
-                        sub_prefix = prefix + tuple([param_name])
+                        sub_prefix = key_prefix + tuple([param_key])
 
-                    param_lists, param_keys = get_param_lists(param_value,
+                    param_lists, param_keys = get_param_lists(param_item,
                                                               param_lists,
                                                               param_keys,
                                                               sub_prefix)
             return param_lists, param_keys
 
+        # Get list of all parameter lists specified in the config file
+        # Note: Parameter lists for separate runs have to contain a trailing
+        # underscore.
         param_lists, param_keys = get_param_lists(self._cfg)
+
+        # Get all possible parameter combinations from the parameter lists
         combinations = list(product(*param_lists))
 
         # Return configurations iterator object starting at the current
@@ -98,8 +133,21 @@ class Controller:
                            self._experiment_id - 1)
 
     def start(self):
+        """
+        Start scheduling training runs.
+        """
+
+        # Iterate over config dicts for all parameter combinations specified in
+        # setup-level config file
         for cfg in self._experiment_cfgs:
-            experiment_dir = f"Experiment {self._experiment_id}"
-            Trainer(experiment_dir, model, criterion, metric_tracker,
-                    optimizer, cfg, data_loaders).train()
+
+            # Set path to result dir for current experiment
+            experiment_dir = f"experiment_{self._experiment_id}"
+
+            # Start training run for current config
+            Trainer(experiment_dir, cfg).train()
+
+            print(f'Schedule Experiment {self._experiment_id}!')
+
+            # Increment experiment counter
             self._experiment_id += 1
