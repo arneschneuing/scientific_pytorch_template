@@ -10,25 +10,44 @@ class Monitor:
     :param log_fn: function used for logging
     """
 
+    # Logging period in iterations
     LOG_FREQ = 10
+
+    # Flags to influence training flow
     MonitorFlags = namedtuple('MonitorFlags', ['save_ckpt', 'new_best_model',
                                                'end_training'])
 
     def __init__(self, cfg, batches_per_epoch, log_fn):
+
+        # Set config
         self._cfg = cfg
+
+        # Set number of batches per epoch (number of batches in dataset)
         self._batches_per_epoch = batches_per_epoch
+
+        # Set logging function
         self._log_fn = log_fn
 
+        # Set early stopping patience if specified
+        # Default: No early stopping
         self._patience = self._cfg['Monitor'].get('patience',
                                                   default=self._num_iterations)
+
+        # Set counter of non-improved validation steps
         self._counter = 0
+
+        # Initialization best state for model saving
         self._best_score = None
         self._best_iteration = None
 
+        # Initialize iteration to zero
         self.it = 0
+
+        # Convert all relevant scheduling parameters to iteration-base
         self._num_iterations, self._ckpt_freq, self._val_freq, \
             self.epoch_based = self._get_scheduling_params(cfg)
 
+        # Initialize monitor flags
         self.flags = self.MonitorFlags(False, False, False)
 
     def __call__(self, score):
@@ -88,10 +107,9 @@ class Monitor:
         """
         return (self.it + 1) % self._val_freq == 0
 
-    def update(self, step=1):
+    def update(self):
         """
         Update state of the monitor
-        :param step: update step size
         """
         # Log Progress
         if (self.it + 1) % self.LOG_FREQ == 0:
@@ -101,21 +119,24 @@ class Monitor:
             self.it += 1
 
     def _get_scheduling_params(self, cfg):
+
         # Read from config file
         num_epochs = cfg['Train'].get('num_epochs', default=None)
         num_iterations = cfg['Train'].get('num_iterations', default=None)
         checkpoint_freq = cfg['Train'].get('checkpoint_freq', default=None)
         val_freq = cfg['Train'].get('val_freq', default=None)
 
+        # Check for missing information
         if num_epochs is None and num_iterations is None:
-            self._log_fn('Error: please specify the training duration using '
-                         'num_epochs or num_iterations in config file')
+            self._log_fn('Error: Please specify the training duration using '
+                         'num_epochs or num_iterations in config file.')
             exit(-1)
         if num_epochs is not None and num_iterations is not None:
-            self._log_fn('Error: training duration is ambiguous, num_epochs and '
-                         'num_iterations are specified in config file')
+            self._log_fn('Error: Training duration is ambiguous, num_epochs '
+                         'and num_iterations are specified in config file.')
             exit(-1)
 
+        # Set unit for training
         if num_iterations is None:
             # epoch-based training
             num_iterations = self._batches_per_epoch * num_epochs
@@ -132,7 +153,7 @@ class Monitor:
 
     def _i2e(self, iteration=None):
         """
-        Convert number of iterations to epoch based representation
+        Convert number of iterations to epoch-based representation
         :return: current epoch and iteration in epoch
         """
         if iteration is None:
@@ -147,6 +168,7 @@ class Monitor:
         return epoch, epoch_it
 
     def _log_progress(self):
+        # TODO: Include option to log metrics from training, e.g. loss.
         """
         Log training progress according to specified training scheme.
         """
