@@ -1,4 +1,5 @@
 import os
+import yaml
 from src.utilities import util
 from src.loggers.logger import Logger
 from src.trainers.monitor import Monitor
@@ -17,18 +18,19 @@ class Trainer:
         # Set experiment-level config
         self._cfg = cfg
 
-        # Create result dir
+        # Set result dir
         self._result_dir = result_dir
-        os.makedirs(result_dir, exist_ok=True)
+
+        # Create logger
         self._logger = Logger(result_dir,
-                              cfg['Logging'].get('write_file', default=True),
-                              cfg['Logging'].get('write_tb', default=True))
+                              cfg['Logging'].get('write_file', True),
+                              cfg['Logging'].get('write_tb', True))
 
         # Build components
         self._data_loaders = build_dataloaders(cfg)
         self._model = build_model(cfg)
         self._criterion = build_criterion(cfg)
-        self._metric_tracker = build_metric_tracker(cfg)
+        self._metric_trackers = build_metric_trackers(cfg)
         self._optimizer = build_optimizer(cfg, self._model.parameters())
 
         # Use GPUs if available
@@ -43,15 +45,14 @@ class Trainer:
 
         if ckpt_path is None:
             # Start new experiment
-            os.makedirs(self._result_dir, exist_ok=True)
+            os.makedirs(result_dir, exist_ok=True)
 
             # Create monitor for current training run
-            self._monitor = Monitor(cfg, len(self._data_loaders['train']),
-                                    log_fn=self._logger.log_string)
+            self._monitor = Monitor(cfg, len(self._data_loaders['train']))
 
             # Log start of new training run
             log_string_1 = '#### Start new training! ####'
-            log_string_2 = f'Result Dir: {self._result_dir}'
+            log_string_2 = f'Result Dir: {result_dir}'
             self._logger.log_string(log_string_1 + '\n' + log_string_2)
 
         else:
@@ -62,11 +63,19 @@ class Trainer:
             self._model.load_state_dict(model_state_dict)
             self._optimizer.load_state_dict(optim_state_dict)
 
+            # Prepare for next iteration of training
+            self._monitor.update()
+
             # Log resumption of training run
-            log_string_1 = f'Result Dir: {self._result_dir}'
+            log_string_1 = f'Result Dir: {result_dir}'
             log_string_2 = f'Resume training at iteration ' \
-                           f'{self._monitor.it}!'
+                           f'{self._monitor.it + 1}!'
             self._logger.log_string(log_string_1 + '\n' + log_string_2)
+
+        # Write config file
+        config_path = os.path.join(result_dir, 'config.yaml')
+        with open(config_path, 'w') as outfile:
+            yaml.dump(cfg, outfile, default_flow_style=False)
 
     def train(self):
 
@@ -75,22 +84,55 @@ class Trainer:
 
             # Perform single training iteration incl. forward pass, loss
             # computation and parameter update
-            rtn_dict, tb_dict = self._train_it()
+            self._train_it()
 
-            # Tensorboard Logging
-            self._logger.tb.train()  # Set tb logger to train mode
-            for key, value in tb_dict.items():
-                if isinstance(value, (int, float)):
+            # Perform validation if scheduled by the monitor
+            if self._monitor.do_logging():
+
+                # Get metrics
+                log_dict = self._metric_trackers['train'].get_metrics()
+
+                # Log progress
+                self._log_progress(log_dict)
+
+                # Tensorboard Logging
+                self._logger.tb.train()  # Set tb logger to train mode
+                for key, value in log_dict.items():
                     self._logger.tb.add_scalar(key, value, self._monitor.it)
+
+                # Flush tensorboard
+                # self._logger.tb.flush()
+
+                # Reset metric tracker
+                self._metric_trackers['train'].reset()
 
             # Perform validation if scheduled by the monitor
             if self._monitor.do_validation():
 
+                # Inform user about evaluation status
+                if self._monitor.epoch_based:
+                    epochs_trained = (self._monitor.it + 1) // \
+                                     self._monitor.batches_per_epoch
+                    self._logger.log_string(
+                        f'#### Evaluation ({epochs_trained} Epochs trained)')
+                else:
+                    self._logger.log_string(
+                        f'#### Evaluation ({self._monitor.it + 1} '
+                        f'Iterations trained)')
+
                 # Validate on the whole validation dataset
-                val_score = self.evaluate(split='val')
+                self.evaluate(split='val')
+
+                # Get metrics
+                val_dict = self._metric_trackers['val'].get_metrics()
+
+                # Tensorboard Logging
+                self._logger.tb.val()  # Set tb logger to val mode
+                for key, value in val_dict.items():
+                    self._logger.tb.add_scalar(key, value, self._monitor.it)
 
                 # Update monitor with the latest validation score
-                self._monitor(val_score)
+                self._monitor(val_dict['acc'])
 
                 # Perform model saving according to monitor flags
                 if self._monitor.flags.save_checkpoint:
@@ -98,26 +140,32 @@ class Trainer:
                 if self._monitor.flags.new_best_model:
                     self._save_checkpoint(save_best=True)
 
+                # Reset metric tracker
+                self._metric_trackers['val'].reset()
+
+                self._logger.log_string(f'Evaluation finished with '
+                                        f'score: {val_dict["acc"]:.4f}!')
+
             # Increase monitor's internal iteration counter
             self._monitor.update()
 
         # Print summary of the training run
-        self._monitor.log_summary()
+        self._logger.log_string(self._monitor.summary_string())
+
+        # Close tensorboard loggers
+        self._logger.close()
 
     def evaluate(self, split):
 
         # Assert that a valid split is provided
-        assert split in ['train', 'val']
+        assert split in ['train', 'val'], 'Incorrect split name provided!'
 
         # Set model to eval mode
         self._model.eval()
 
-        # Accumulate loss
-        loss = 0
-
         # Iterate over validation dataset
         for batch_id, (batch_data, batch_target) in \
-                enumerate(self._data_loaders['split']):
+                enumerate(self._data_loaders[split]):
 
             # Disable gradient taping for validation
             with torch.no_grad():
@@ -126,12 +174,17 @@ class Trainer:
                 batch_output = self._model(batch_data)
 
                 # Compute loss
-                loss += self._criterion(batch_output, batch_target)
+                loss = self._criterion(batch_output, batch_target)
 
-        # Return average loss
-        loss /= (len(self._data_loaders[split]))
+                # Update metric tracker
+                self._metric_trackers['val'].update(batch_output, batch_target,
+                                                    loss)
 
-        return loss
+                # Perform validation if scheduled by the monitor
+                if ((batch_id + 1) % self._monitor.LOG_FREQ) == 0:
+                    self._logger.log_string(
+                        f'#### Batch ID: {batch_id+1}/'
+                        f'{len(self._data_loaders[split])} ####')
 
     def _train_it(self):
 
@@ -142,7 +195,7 @@ class Trainer:
         self._model.zero_grad()
 
         # Get batch data from data loader
-        batch_data, batch_target = next(self._data_loaders['train_it'])
+        batch_data, batch_target = next(self._data_loaders['train'])
 
         # Perform forward pass
         batch_output = self._model(batch_data)
@@ -150,13 +203,14 @@ class Trainer:
         # Compute loss
         loss = self._criterion(batch_output, batch_target)
 
+        # Update metric tracker
+        self._metric_trackers['train'].update(batch_output, batch_target, loss)
+
         # Perform backward pass
         loss.backward()
 
         # Update parameters
         self._optimizer.step()
-
-        return loss
 
     def _prepare_device(self, n_gpu):
         """
@@ -202,6 +256,7 @@ class Trainer:
 
         # Create checkpoint path
         ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
+        os.makedirs(ckpt_dir, exist_ok=True)
 
         # Set filename
         if save_best:
@@ -232,11 +287,14 @@ class Trainer:
         # Check if checkpoint exists
         if os.path.isdir(ckpt_dir):
 
-            # Get checkpoint identifier
-            identifier = '_e' if self._monitor.epoch_based else '_i'
-
             # Get filename of latest checkpoint
-            ckpt_filename = util.get_latest_version(ckpt_dir, identifier)
+            ckpt_candidates = [util.get_latest_version(ckpt_dir, '_i'),
+                               util.get_latest_version(ckpt_dir, '_e')]
+            if ckpt_candidates[0] is None and ckpt_candidates[1] is None:
+                ckpt_filename = None
+            else:
+                ckpt_filename = ckpt_candidates[0] \
+                    if ckpt_candidates[0] is not None else ckpt_candidates[1]
 
             # Verify training resumption with user input
             if ckpt_filename is not None:
@@ -244,7 +302,7 @@ class Trainer:
                       f'Resume/Exit? [r]/e')
                 c = input()
                 if c == 'r' or c == '':
-                    return ckpt_filename
+                    return os.path.join(ckpt_dir, ckpt_filename)
                 elif c == 'e':
                     print('Exiting...')
                     exit()
@@ -265,3 +323,29 @@ class Trainer:
         optim_state_dict = checkpoint['optimizer']
 
         return model_state_dict, optim_state_dict, monitor
+
+    def _log_progress(self, log_dict):
+        """
+        Log training progress according to specified training scheme.
+        """
+
+        if self._monitor.epoch_based:
+
+            # Get number of current epoch and iteration
+            current_epoch, epoch_it = self._monitor.i2e()
+
+            # Set progress string
+            prog_string = f'#### Epoch: {current_epoch} | ' \
+                          f'Iteration: {epoch_it}/' \
+                          f'{self._monitor.batches_per_epoch} ####'
+        else:
+            # Set progress string
+            prog_string = f'#### Iteration: {self._monitor.it + 1}/' \
+                          f'{self._monitor.num_iterations} ####'
+
+        # Log string
+        self._logger.log_string(prog_string)
+
+        # Log content of log dict
+        for key, item in log_dict.items():
+            self._logger.log_string(f'{key:<15}: {item:.4f}')
