@@ -3,6 +3,7 @@ import os
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
 from src.trainers.trainer import Trainer
+from src.utilities.util import get_latest_version
 
 
 class Controller:
@@ -23,9 +24,11 @@ class Controller:
         """
 
         # Get ID of next experiment to be performed
-        self._experiment_id = self._create_folder_structure(result_dir, setup)
+        self._experiment_id, self._setup_path = \
+            self._create_folder_structure(result_dir, setup)
 
         # Set config file for current setup
+        self._config_path = cfg_path
         self._cfg = self._read_config_file(cfg_path)
 
         # Extract config files for each parameter configuration in current
@@ -57,17 +60,21 @@ class Controller:
             print(f'Directory {setup_path} already exists. Continue '
                   f'training? [y]/n')
             c = input()
-            if c == 'n':
+            if c == 'y' or c == '':
+                print(f'Continue experiments in {setup_path}.')
+            else:
                 print('Exiting...')
                 exit()
-            elif c == 'y' or c == '':
-                print(f'Continue experiments in {setup_path}.')
+
+            experiment_id = int(get_latest_version(setup_path, 'experiment_')
+                                .strip('experiment_'))
 
         else:
             os.makedirs(setup_path)
             print(f'Create new setup in directory {setup_path}.')
+            experiment_id = 1
 
-        return len(os.listdir(setup_path)) + 1
+        return experiment_id, setup_path
 
     def _split_config(self):
         """
@@ -127,6 +134,16 @@ class Controller:
         # Get all possible parameter combinations from the parameter lists
         combinations = list(product(*param_lists))
 
+        # Verify combinations before starting training runs
+        print(f'Found {len(combinations)} parameter combinations in config '
+              f'file {self._config_path}. Start experiments? [y]/n')
+        c = input()
+        if c == '' or c == 'y':
+            pass
+        else:
+            print('Exiting...')
+            exit(-1)
+
         # Return configurations iterator object starting at the current
         # experiment ID
         return CfgIterator(self._cfg, combinations, param_keys,
@@ -144,10 +161,13 @@ class Controller:
             # Set path to result dir for current experiment
             experiment_dir = f"experiment_{self._experiment_id}"
 
-            # Start training run for current config
-            Trainer(experiment_dir, cfg).train()
+            # Get full experiment path
+            experiment_path = os.path.join(self._setup_path, experiment_dir)
 
-            print(f'Schedule Experiment {self._experiment_id}!')
+            print(f'Schedule experiment {self._experiment_id}!')
+
+            # Start training run for current config
+            Trainer(experiment_path, cfg).train()
 
             # Increment experiment counter
             self._experiment_id += 1
