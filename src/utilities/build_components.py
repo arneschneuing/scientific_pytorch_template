@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+from src.utilities.metric_tracker import MetricTracker
+from src.data_handlers.data_loader import InfiniteDataLoader
 
 
 def build_dataloaders(cfg):
@@ -13,7 +15,7 @@ def build_dataloaders(cfg):
     "val", "test"]
     """
 
-    train_loader = torch.utils.data.DataLoader(
+    train_loader = InfiniteDataLoader(
         torchvision.datasets.MNIST('/tmp/files', train=True, download=True,
                                    transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
@@ -44,18 +46,16 @@ def build_model(cfg):
             super(Net, self).__init__()
             self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
             self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-            self.conv2_drop = nn.Dropout2d()
             self.fc1 = nn.Linear(320, 50)
             self.fc2 = nn.Linear(50, 10)
 
         def forward(self, x):
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
-            x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+            x = F.relu(F.max_pool2d(self.conv2(x), 2))
             x = x.view(-1, 320)
             x = F.relu(self.fc1(x))
-            x = F.dropout(x, training=self.training)
             x = self.fc2(x)
-            return F.log_softmax(x, dim=1)
+            return x
 
     return Net()
 
@@ -70,8 +70,8 @@ def build_criterion(cfg):
     return nn.CrossEntropyLoss()
 
 
-def build_metric_tracker(cfg):
-    pass
+def build_metric_trackers(cfg):
+    return {'train': MetricTracker(), 'val': MetricTracker()}
 
 
 def build_optimizer(cfg, params):
@@ -90,7 +90,7 @@ def build_optimizer(cfg, params):
 if __name__ == '__main__':
 
     # Create config
-    cfg = {'batch_size': 5, 'learning_rate': 0.01, 'sgd_momentum': 0.9}
+    cfg = {'batch_size': 64, 'learning_rate': 0.01, 'sgd_momentum': 0.5}
 
     # Build data loaders
     data_loaders = build_dataloaders(cfg=cfg)
@@ -106,22 +106,34 @@ if __name__ == '__main__':
     # Build optimizer
     optimizer = build_optimizer(cfg=cfg, params=model.parameters())
 
+    # Build metric tracker
+    metric_tracker = MetricTracker()
+
     # Iterate over dataset
     for batch_id, (batch_data, batch_labels) in \
             enumerate(data_loaders['train']):
 
-        print(f'Batch Input: {batch_data.size()}')
-        print(f'Batch Label: {batch_labels.size()}')
+        optimizer.zero_grad()
+
+        print(f'Batch ID: {batch_id + 1}')
+
+        # print(f'Batch Input: {batch_data.size()}')
+        # print(f'Batch Label: {batch_labels.size()}')
 
         # Perform forward pass
         batch_output = model(batch_data)
 
-        print(f'Batch Output: {batch_output.size()}')
+        # print(f'Batch Output: {batch_output.size()}')
 
         # Compute loss
         loss = criterion(batch_output, batch_labels)
 
-        print(f'Loss: {loss}')
+        # print(f'Loss: {loss}')
+
+        # Update metric tracker
+        metric_tracker.update(batch_output, batch_labels)
+
+        print(f'Accuracy: {metric_tracker.get_metrics()}')
 
         # Perform backward pass
         loss.backward()
@@ -129,4 +141,3 @@ if __name__ == '__main__':
         # Update parameters
         optimizer.step()
 
-        exit()
