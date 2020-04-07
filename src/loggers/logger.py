@@ -8,7 +8,7 @@ from tensorboardX import SummaryWriter
 
 class Logger:
     def __init__(self, log_dir, write_file, write_tb):
-        self.log_dir = os.path.join('..', log_dir)
+        self.log_dir = log_dir
         self.write_file = write_file
         self.write_tb = write_tb
 
@@ -35,6 +35,15 @@ class Logger:
         self.log_file.flush()
         print(log_str)
 
+    def close(self):
+
+        # Close txt file
+        self.log_file.close()
+
+        # Close tensorboard loggers
+        for tb_writer in self.tb.writers.values():
+            tb_writer.close()
+
 
 class TensorboardWriter:
     def __init__(self, log_dir):
@@ -47,12 +56,12 @@ class TensorboardWriter:
         # Create tb writer for train mode
         tb_train_dir = os.path.join(log_dir, 'train')
         os.makedirs(tb_train_dir, exist_ok=True)
-        self._writers = {'train': SummaryWriter(tb_train_dir)}
+        self.writers = {'train': SummaryWriter(tb_train_dir)}
 
         # Create tb writer for val mode
         tb_val_dir = os.path.join(log_dir, 'val')
         os.makedirs(tb_val_dir, exist_ok=True)
-        self._writers['val'] = SummaryWriter(tb_val_dir)
+        self.writers['val'] = SummaryWriter(tb_val_dir)
 
         # Set tb writer mode
         self._mode = 'train'
@@ -74,7 +83,7 @@ class TensorboardWriter:
         if name in self._tb_writer_ftns:
 
             # Get tb function handle
-            add_data = getattr(self._writers[self._mode], name, None)
+            add_data = getattr(self.writers[self._mode], name, None)
 
             # Return wrapper for tb function
             def wrapper(tag, data, step, *args, **kwargs):
@@ -103,6 +112,10 @@ class TensorboardWriter:
         Set TB logger mode to val.
         """
         self._mode = 'val'
+
+    def flush(self):
+        for tb_writer in self.writers.values():
+            tb_writer.flush()
 
 
 if __name__ == '__main__':
