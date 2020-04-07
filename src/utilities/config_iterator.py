@@ -13,7 +13,7 @@ class CfgIterator:
     """
     def __init__(self, base_cfg, param_combinations, param_keys, start_id=0):
         self._base_cfg = base_cfg
-        # TODO: self._cfg = deepcopy(self._base_cfg) - relevant?
+        self._cfg = deepcopy(self._base_cfg)
         self._comb = param_combinations
         self._keys = param_keys
         self._k = start_id
