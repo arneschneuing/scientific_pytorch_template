@@ -14,13 +14,12 @@ class Controller:
     optimization. Single training runs will be started for each parameter
     configuration.
     """
-    def __init__(self, cfg_path, result_dir, setup=None):
+    def __init__(self, cfg_path, result_dir, setup):
         """
         :param cfg_path: string |relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
         logs, checkpoints and other outputs will be saved
-        :param setup: string | name of the setup to continue experiments |
-        Default: None -> Create new setup directory
+        :param setup: string | name of the setup
         """
 
         # Get ID of next experiment to be performed
@@ -37,7 +36,6 @@ class Controller:
 
     @staticmethod
     def _read_config_file(cfg_path):
-        # Read-in cfg file
         with open(cfg_path, 'r') as f:
             cfg = yaml.safe_load(f)
         return cfg
@@ -49,6 +47,8 @@ class Controller:
         :param result_dir: string | relative path to result directory
         :param setup: string | name of the current setup
         :return:
+            experiment_id: int | ID of the next experiment (1 if first)
+            setup_path: string | path to setup directory
         """
 
         # Create result dir
@@ -66,12 +66,18 @@ class Controller:
                 print('Exiting...')
                 exit()
 
+            # Get experiment ID as ID of last available experiment
             experiment_id = int(get_latest_version(setup_path, 'experiment_')
                                 .strip('experiment_'))
 
         else:
+
+            # Create setup directory
             os.makedirs(setup_path)
+
             print(f'Create new setup in directory {setup_path}.')
+
+            # Set initial experiment ID to 1
             experiment_id = 1
 
         return experiment_id, setup_path

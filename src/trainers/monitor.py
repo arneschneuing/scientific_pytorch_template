@@ -104,21 +104,35 @@ class Monitor:
         :return: True/False
         """
 
+        # Use inter-epoch iteration for logging if epoch-based training
         if self.epoch_based:
             _, epoch_it = self.i2e()
             return epoch_it % self.LOG_FREQ == 0
+        # Use global iteration for logging if iteration-based training
         else:
             return (self.it + 1) % self.LOG_FREQ == 0
 
     def update(self):
         """
-        Update state of the monitor
+        Update state of the monitor. Do not increase iteration counter if
+        "end-of-training"-flag is set.
         """
-
         if not self.flags.end_training:
             self.it += 1
 
     def _get_scheduling_params(self, cfg):
+        """
+        Extract all scheduling-related parameters from the config file and
+        convert them to iterations since training is performed on an iteration
+        basis.
+        :param cfg: config dict
+        :return:
+            num_iterations: maximum number of training iterations
+            checkpoint_freq: checkpoint frequency in iterations
+            val_freq: validation frequency in iterations
+            epoch_based: Flag indicating if training is to be performed in an
+                epoch-based fashion
+        """
 
         # Read from config file
         num_epochs = cfg['Train'].get('num_epochs', None)
@@ -153,8 +167,8 @@ class Monitor:
 
     def i2e(self, iteration=None):
         """
-        Convert number of iterations to epoch-based representation
-        :return: current epoch and iteration in epoch
+        Convert number of iterations to epoch-based representation.
+        :return: current epoch and inter-epoch iteration
         """
         if iteration is None:
             iteration = self.it

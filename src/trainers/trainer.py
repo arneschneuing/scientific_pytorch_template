@@ -101,7 +101,7 @@ class Trainer:
                     self._logger.tb.add_scalar(key, value, self._monitor.it)
 
                 # Flush tensorboard
-                # self._logger.tb.flush()
+                self._logger.tb.flush()
 
                 # Reset metric tracker
                 self._metric_trackers['train'].reset()
