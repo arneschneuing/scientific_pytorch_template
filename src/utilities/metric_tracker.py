@@ -1,3 +1,5 @@
+import torch.nn as nn
+import torch
 
 
 class MetricTracker:
@@ -9,22 +11,42 @@ class MetricTracker:
     frequency or at the end of one epoch.
     """
     def __init__(self):
-        super(MetricTracker, self).__init__()
+        self.correct = 0
+        self.incorrect = 0
+        self.loss = 0
+        self.loss_updates = 0
 
-    def update(self):
+    def update(self, prediction, target, loss):
         """
         Update tracker state with new values.
         """
-        pass
+
+        sm_predictions = nn.Softmax(dim=1)(prediction)
+        cls_predictions = torch.argmax(sm_predictions, dim=1)
+
+        self.correct += torch.sum(cls_predictions == target).float()
+        self.incorrect += torch.sum(cls_predictions != target).float()
+
+        self.loss += loss
+        self.loss_updates += 1
 
     def get_metrics(self):
         """
         Turn tracker state into metric representation for e.g. logging purposes
         or result visualization.
         """
-        pass
+
+        accuracy = self.correct / (self.correct + self.incorrect)
+        loss = self.loss / self.loss_updates
+
+        return {'acc': accuracy, 'loss': loss}
 
     def reset(self):
         """
         Reset accumulated values at the end of a tracking period.
         """
+
+        self.correct = 0
+        self.incorrect = 0
+        self.loss = 0
+        self.loss_updates = 0
