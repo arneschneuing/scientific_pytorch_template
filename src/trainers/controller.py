@@ -1,9 +1,10 @@
 import yaml
 import os
+from shutil import copyfile
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
 from src.trainers.trainer import Trainer
-from src.utilities.util import get_latest_version
+from src.utilities.util import get_latest_version, copy_code
 
 
 class Controller:
@@ -16,7 +17,7 @@ class Controller:
     """
     def __init__(self, cfg_path, result_dir, setup):
         """
-        :param cfg_path: string |relative path to the YAML config file
+        :param cfg_path: string | relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
         logs, checkpoints and other outputs will be saved
         :param setup: string | name of the setup
@@ -33,6 +34,16 @@ class Controller:
         # Extract config files for each parameter configuration in current
         # setup
         self._experiment_cfgs = self._split_config()
+
+        # Copy main configuration file
+        cfg_copy_path = os.path.join(self._setup_path,
+                                     os.path.basename(cfg_path))
+        copyfile(cfg_path, cfg_copy_path)
+
+        # Copy code to setup folder
+        if self._cfg['Logging'].get('copy_code', False):
+            code_copy_path = os.path.join(self._setup_path, 'code')
+            copy_code(code_copy_path)
 
     @staticmethod
     def _read_config_file(cfg_path):

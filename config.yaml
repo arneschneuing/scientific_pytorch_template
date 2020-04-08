@@ -1,4 +1,4 @@
-batch_size_: [8, 16, 32]
+batch_size: 32
 learning_rate: 0.1
 sgd_momentum: 0.5
 n_gpu: 3
@@ -9,3 +9,4 @@ Train:
 Logging:
   write_file: True
   write_tb: True
+  copy_code: True
