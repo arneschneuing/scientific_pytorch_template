@@ -56,7 +56,7 @@ class Controller:
 
         # Check if setup dir already exists
         setup_path = os.path.join(result_dir, setup)
-        if os.path.isdir(setup_path):
+        if os.path.isdir(setup_path) and len(os.listdir(setup_path)) > 0:
             print(f'Directory {setup_path} already exists. Continue '
                   f'training? [y]/n')
             c = input()
@@ -73,7 +73,7 @@ class Controller:
         else:
 
             # Create setup directory
-            os.makedirs(setup_path)
+            os.makedirs(setup_path, exist_ok=True)
 
             print(f'Create new setup in directory {setup_path}.')
 
