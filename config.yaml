@@ -1,9 +1,11 @@
-epochs: 40
-batch_size: 8
-learning_rate_: [0.1, 0.01]
-
-cutout_args:
-  size: 0.1
-  width_: [0.1, 0.5]
-  args:
-    height_: [2.0, 5.0]
+batch_size_: [8, 16, 32]
+learning_rate: 0.1
+sgd_momentum: 0.5
+n_gpu: 3
+Train:
+  num_iterations: 1000
+  val_freq: 1000
+  checkpoint_freq: 1000
+Logging:
+  write_file: True
+  write_tb: True
