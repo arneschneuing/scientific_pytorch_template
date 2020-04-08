@@ -3,7 +3,14 @@
 # /visualization.py
 
 import os
-from tensorboardX import SummaryWriter
+try:
+    from tensorboardX import SummaryWriter
+except ModuleNotFoundError:
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+    except ImportError:
+        print("Error: TensorBoard not available.")
+        exit(-1)
 
 
 class Logger:
@@ -120,7 +127,7 @@ class TensorboardWriter:
 
 if __name__ == '__main__':
 
-    logger = Logger('Results', write_file=True, write_tb=True)
+    logger = Logger('results', write_file=True, write_tb=True)
     max_iter = 100
     for i in range(max_iter):
         logger.log_string(f'Iteration: {i}')
