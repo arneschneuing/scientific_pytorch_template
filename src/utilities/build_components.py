@@ -16,7 +16,7 @@ def build_dataloaders(cfg):
     """
 
     train_loader = InfiniteDataLoader(
-        torchvision.datasets.MNIST('/tmp/files', train=True, download=True,
+        torchvision.datasets.MNIST('./tmp/files', train=True, download=True,
                                    transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
@@ -24,7 +24,7 @@ def build_dataloaders(cfg):
         batch_size=cfg['batch_size'], shuffle=True)
 
     val_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('/tmp/files', train=False, download=True,
+        torchvision.datasets.MNIST('./tmp/files', train=False, download=True,
                                    transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
