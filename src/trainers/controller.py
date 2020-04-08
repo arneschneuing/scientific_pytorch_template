@@ -1,6 +1,6 @@
 import yaml
 import os
-from shutil import copyfile
+from shutil import copyfile, rmtree
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
 from src.trainers.trainer import Trainer
@@ -15,17 +15,18 @@ class Controller:
     optimization. Single training runs will be started for each parameter
     configuration.
     """
-    def __init__(self, cfg_path, result_dir, setup):
+    def __init__(self, cfg_path, result_dir, setup, overwrite):
         """
         :param cfg_path: string | relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
         logs, checkpoints and other outputs will be saved
         :param setup: string | name of the setup
+        :param overwrite: Boolean | overwrite setup directory
         """
 
         # Get ID of next experiment to be performed
         self._experiment_id, self._setup_path = \
-            self._create_folder_structure(result_dir, setup)
+            self._create_folder_structure(result_dir, setup, overwrite)
 
         # Set config file for current setup
         self._config_path = cfg_path
@@ -52,11 +53,12 @@ class Controller:
         return cfg
 
     @staticmethod
-    def _create_folder_structure(result_dir, setup):
+    def _create_folder_structure(result_dir, setup, overwrite):
         """
         Create required directories for the saving of experimental results.
         :param result_dir: string | relative path to result directory
         :param setup: string | name of the current setup
+        :param overwrite: Boolean | overwrite setup directory
         :return:
             experiment_id: int | ID of the next experiment (1 if first)
             setup_path: string | path to setup directory
@@ -65,8 +67,18 @@ class Controller:
         # Create result dir
         os.makedirs(result_dir, exist_ok=True)
 
-        # Check if setup dir already exists
+        # Make setup path
         setup_path = os.path.join(result_dir, setup)
+
+        # Check if overwrite mode is turned on
+        if overwrite:
+            try:
+                rmtree(setup_path)
+            except FileNotFoundError:
+                # nothing to overwrite
+                pass
+
+        # Check if setup dir already exists
         if os.path.isdir(setup_path) and len(os.listdir(setup_path)) > 0:
             print(f'Directory {setup_path} already exists. Continue '
                   f'training? [y]/n')
