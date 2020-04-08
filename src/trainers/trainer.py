@@ -22,9 +22,7 @@ class Trainer:
         self._result_dir = result_dir
 
         # Create logger
-        self._logger = Logger(result_dir,
-                              cfg['Logging'].get('write_file', True),
-                              cfg['Logging'].get('write_tb', True))
+        self._logger = Logger(result_dir, cfg)
 
         # Build components
         self._data_loaders = build_dataloaders(cfg)
@@ -96,12 +94,13 @@ class Trainer:
                 self._log_progress(log_dict)
 
                 # Tensorboard Logging
-                self._logger.tb.train()  # Set tb logger to train mode
-                for key, value in log_dict.items():
-                    self._logger.tb.add_scalar(key, value, self._monitor.it)
+                if self._logger.write_tb:
+                    self._logger.tb.train()  # Set tb logger to train mode
+                    for key, value in log_dict.items():
+                        self._logger.tb.add_scalar(key, value, self._monitor.it)
 
-                # Flush tensorboard
-                self._logger.tb.flush()
+                    # Flush tensorboard
+                    self._logger.tb.flush()
 
                 # Reset metric tracker
                 self._metric_trackers['train'].reset()
@@ -127,9 +126,10 @@ class Trainer:
                 val_dict = self._metric_trackers['val'].get_metrics()
 
                 # Tensorboard Logging
-                self._logger.tb.val()  # Set tb logger to val mode
-                for key, value in val_dict.items():
-                    self._logger.tb.add_scalar(key, value, self._monitor.it)
+                if self._logger.write_tb:
+                    self._logger.tb.val()  # Set tb logger to val mode
+                    for key, value in val_dict.items():
+                        self._logger.tb.add_scalar(key, value, self._monitor.it)
 
                 # Update monitor with the latest validation score
                 self._monitor(val_dict['acc'])

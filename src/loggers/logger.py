@@ -5,19 +5,21 @@
 import os
 try:
     from tensorboardX import SummaryWriter
+    TB_AVAILABLE = True
 except ModuleNotFoundError:
     try:
         from torch.utils.tensorboard import SummaryWriter
+        TB_AVAILABLE = True
     except ImportError:
-        print("Error: TensorBoard not available.")
-        exit(-1)
+        TB_AVAILABLE = False
+        print("Warning: TensorBoard not available.")
 
 
 class Logger:
-    def __init__(self, log_dir, write_file, write_tb):
+    def __init__(self, log_dir, cfg):
         self.log_dir = log_dir
-        self.write_file = write_file
-        self.write_tb = write_tb
+        self.write_file = cfg['Logging'].get('write_file', True)
+        self.write_tb = cfg['Logging'].get('write_tb', True)
 
         # Create log_dir
         os.makedirs(self.log_dir, exist_ok=True)
@@ -25,31 +27,42 @@ class Logger:
         # Create TB log_dir if tensorboard logging enabled
         if self.write_tb:
 
-            tb_log_dir = os.path.join(self.log_dir, 'tensorboard_logs')
-            os.makedirs(tb_log_dir, exist_ok=True)
+            if TB_AVAILABLE:
+                tb_log_dir = os.path.join(self.log_dir, 'tensorboard_logs')
+                os.makedirs(tb_log_dir, exist_ok=True)
 
-            # Create tensorboard writer
-            self.tb = TensorboardWriter(tb_log_dir)
+                # Create tensorboard writer
+                self.tb = TensorboardWriter(tb_log_dir)
+
+            else:
+                print("Error: TensorBoard is configured to be used but it is "
+                      "not available.")
+                exit(-1)
 
         # Create log file if file logging enabled
-        self.log_file = open(os.path.join(self.log_dir, 'log_train.txt'), 'a')
+        if self.write_file:
+            self.log_file = open(os.path.join(self.log_dir, 'log_train.txt'),
+                                 'a')
 
     def log_string(self, log_str):
         """
         Write string to log file and print to console.
         """
-        self.log_file.write(log_str + '\n')
-        self.log_file.flush()
+        if self.write_file:
+            self.log_file.write(log_str + '\n')
+            self.log_file.flush()
         print(log_str)
 
     def close(self):
 
         # Close txt file
-        self.log_file.close()
+        if self.write_file:
+            self.log_file.close()
 
         # Close tensorboard loggers
-        for tb_writer in self.tb.writers.values():
-            tb_writer.close()
+        if self.write_tb:
+            for tb_writer in self.tb.writers.values():
+                tb_writer.close()
 
 
 class TensorboardWriter:
@@ -127,7 +140,8 @@ class TensorboardWriter:
 
 if __name__ == '__main__':
 
-    logger = Logger('results', write_file=True, write_tb=True)
+    logger = Logger('results',
+                    {'Logging': {'write_file': True, 'write_tb': True}})
     max_iter = 100
     for i in range(max_iter):
         logger.log_string(f'Iteration: {i}')
