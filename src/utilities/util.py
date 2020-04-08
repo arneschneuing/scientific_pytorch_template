@@ -37,6 +37,56 @@ def get_latest_version(dir, token):
     return curr_latest
 
 
+def get_components(path):
+    """
+    Helper function to split path into its components
+    :param path: input path
+    :return: list of components
+    """
+    components = []
+    head, tail = os.path.split(path)
+    while tail != '':
+        components.append(tail)
+        head, tail = os.path.split(head)
+    return components
+
+
+def safe_copytree(src, dst, ignore_list=None):
+    """
+    Perform shutil.copytree only when it is safe to do so.
+    Recursively copying the entire directory tree rooted at src could result in
+    an infinite recursion if dst is contained in src.
+    :param src: path of the source directory
+    :param dst: path of the destination
+    :param ignore_list: list of items to ignore while copying the tree
+    :return: path of the new directory
+    """
+    # Get the canonical paths
+    src_path = os.path.realpath(src)
+    dst_path = os.path.realpath(dst)
+
+    # Get the longest common sub-path
+    common_path = os.path.commonpath([src_path, dst_path])
+
+    # Check if source directory is parent of destination directory
+    src_is_parent = (src_path == common_path)
+
+    # Determine whether dst will be ignored while copying
+    if ignore_list is None:
+        dst_is_ignored = False
+    else:
+        path_diff = dst_path[len(common_path):]
+        path_split = get_components(path_diff)
+        dst_is_ignored = any([x in ignore_list for x in path_split])
+
+    if src_is_parent and not dst_is_ignored:
+        raise RuntimeError('Possibly infinite recursion '
+                           'detected in safe_copytree')
+    else:
+        return shutil.copytree(src, dst,
+                               ignore=shutil.ignore_patterns(*ignore_list))
+
+
 def copy_code(dest_dir):
     """
     Copy source code to dest_dir
@@ -58,10 +108,12 @@ def copy_code(dest_dir):
     ignore = [x.strip('\n').strip('/') for x in ignore]
 
     # Add further items to ignore
-    ignore += ['.gitignore', '.git', '*.yaml']
-
-    # Avoid infinite recursion
-    ignore += [os.path.basename(dest_dir.strip('/'))]
+    ignore += ['.gitignore', '.git', '*.yaml', 'README.md']
 
     # Copy files to new location
-    shutil.copytree(base_dir, dest_dir, ignore=shutil.ignore_patterns(*ignore))
+    safe_copytree(base_dir, dest_dir, ignore)
+
+
+if __name__ == "__main__":
+    safe_copytree('../..', '../../results/code',
+                  ignore_list=['tmp', '.git', 'results'])

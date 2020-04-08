@@ -1,6 +1,6 @@
-from shutil import copytree, ignore_patterns
 import os
 import argparse
+from src.utilities.util import safe_copytree
 
 # Argument parser
 parser = argparse.ArgumentParser()
@@ -21,8 +21,8 @@ with open(gitignore) as f:
 ignore = [x.strip('\n').strip('/') for x in ignore]
 
 # Add further items to ignore
-ignore += ['.gitignore', '.git', 'copy_template.py']
+ignore += ['.gitignore', '.git', 'copy_template.py', 'README.md']
 
 # Copy files to new location
-copytree(template_dir, destination, ignore=ignore_patterns(*ignore))
+safe_copytree(template_dir, destination, ignore)
 print(f'Copied template from {template_dir} to {os.path.abspath(destination)}')
