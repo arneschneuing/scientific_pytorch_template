@@ -14,9 +14,6 @@ class Monitor:
     :param batches_per_epoch: number of batches per epoch
     """
 
-    # Logging period in iterations
-    LOG_FREQ = 10
-
     def __init__(self, cfg, batches_per_epoch):
 
         # Set config
@@ -36,8 +33,8 @@ class Monitor:
         self.it = 0
 
         # Convert all relevant scheduling parameters to iteration-base
-        self.num_iterations, self._ckpt_freq, self._val_freq, \
-            self.epoch_based = self._get_scheduling_params(cfg)
+        self.num_iterations, self._ckpt_freq, self._val_freq, self._lr_freq, \
+            self._log_freq, self.epoch_based = self._get_scheduling_params(cfg)
 
         # Set early stopping patience if specified
         # Default: No early stopping
@@ -47,7 +44,7 @@ class Monitor:
         # Initialize monitor flags
         self.flags = MonitorFlags(False, False, False)
 
-    def __call__(self, score):
+    def register_result(self, score):
 
         # Initialize monitor flags
         save_checkpoint = False
@@ -81,7 +78,7 @@ class Monitor:
             new_best_model = True
 
             # Reset counter
-            self.counter = 0
+            self._counter = 0
 
         # Check if validation phase left before end of scheduled training
         if (self.it + 1) > (self.num_iterations - self._val_freq):
@@ -98,21 +95,36 @@ class Monitor:
         """
         return (self.it + 1) % self._val_freq == 0
 
-    def do_logging(self):
+    def do_logging(self, it=None):
         """
         Trigger logging.
+        :param it: current iteration (e.g. within epoch) | default: None
         :return: True/False
         """
 
-        # Use inter-epoch iteration for logging if epoch-based training
-        if self.epoch_based:
-            _, epoch_it = self.i2e()
-            return epoch_it % self.LOG_FREQ == 0
-        # Use global iteration for logging if iteration-based training
-        else:
-            return (self.it + 1) % self.LOG_FREQ == 0
+        # Use global iteration counter for logging during training
+        if it is None:
 
-    def update(self):
+            # Use inter-epoch iteration for logging if epoch-based training
+            if self.epoch_based:
+                _, epoch_it = self.i2e()
+                return epoch_it % self._log_freq == 0
+            # Use global iteration for logging if iteration-based training
+            else:
+                return (self.it + 1) % self._log_freq == 0
+
+        # Provide current iteration during evaluation
+        else:
+            return it % self._log_freq == 0
+
+    def do_lr_step(self):
+        """
+        Trigger learning rate scheduler step.
+        :return: True/False
+        """
+        return (self.it + 1) % self._lr_freq == 0
+
+    def step(self):
         """
         Update state of the monitor. Do not increase iteration counter if
         "end-of-training"-flag is set.
@@ -139,6 +151,8 @@ class Monitor:
         num_iterations = cfg['Train'].get('num_iterations', None)
         checkpoint_freq = cfg['Train'].get('checkpoint_freq', None)
         val_freq = cfg['Train'].get('val_freq', None)
+        lr_freq = cfg['Train'].get('lr_freq', None)
+        log_freq = cfg['Train'].get('log_freq', None)
 
         # Check for missing information
         if num_epochs is None and num_iterations is None:
@@ -158,12 +172,33 @@ class Monitor:
                 else self.batches_per_epoch * checkpoint_freq
             val_freq = self.batches_per_epoch if val_freq is None \
                 else self.batches_per_epoch * val_freq
+            lr_freq = self.batches_per_epoch if lr_freq is None \
+                else self.batches_per_epoch * lr_freq
             epoch_based = True
         else:
             # iteration-based training
             epoch_based = False
+            checkpoint_freq = self.batches_per_epoch if checkpoint_freq \
+                                                        is None \
+                else checkpoint_freq
+            val_freq = self.batches_per_epoch if val_freq is None else val_freq
+            lr_freq = self.batches_per_epoch if lr_freq is None else lr_freq
 
-        return num_iterations, checkpoint_freq, val_freq, epoch_based
+        # Set logging frequency to 10 if no value provided
+        if log_freq is None:
+            log_freq = 10
+
+        # Check validity of provided frequencies
+        assert num_iterations >= self.batches_per_epoch, 'Training duration ' \
+                                                         'has to be longer ' \
+                                                         'than one epoch!'
+        assert checkpoint_freq % val_freq == 0, 'Checkpoint frequency ' \
+                                                'has to be an integer ' \
+                                                'multiple of the ' \
+                                                'validation frequency!'
+
+        return num_iterations, checkpoint_freq, val_freq, lr_freq, log_freq, \
+               epoch_based
 
     def i2e(self, iteration=None):
         """
