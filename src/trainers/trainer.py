@@ -30,6 +30,7 @@ class Trainer:
         self._criterion = build_criterion(cfg)
         self._metric_trackers = build_metric_trackers(cfg)
         self._optimizer = build_optimizer(cfg, self._model.parameters())
+        self._lr_scheduler = build_lr_scheduler(cfg, self._optimizer)
 
         # Use GPUs if available
         self._device, device_ids = self._prepare_device(cfg['n_gpu'])
@@ -90,6 +91,9 @@ class Trainer:
                 # Get metrics
                 log_dict = self._metric_trackers['train'].get_metrics()
 
+                # Get current learning rate
+                log_dict['lr'] = self.get_lr()
+
                 # Log progress
                 self._log_progress(log_dict)
 
@@ -129,10 +133,11 @@ class Trainer:
                 if self._logger.write_tb:
                     self._logger.tb.val()  # Set tb logger to val mode
                     for key, value in val_dict.items():
-                        self._logger.tb.add_scalar(key, value, self._monitor.it)
+                        self._logger.tb.add_scalar(key, value,
+                                                   self._monitor.it)
 
                 # Update monitor with the latest validation score
-                self._monitor(val_dict['acc'])
+                self._monitor.register_result(val_dict['acc'])
 
                 # Perform model saving according to monitor flags
                 if self._monitor.flags.save_checkpoint:
@@ -146,8 +151,12 @@ class Trainer:
                 self._logger.log_string(f'Evaluation finished with '
                                         f'score: {val_dict["acc"]:.4f}!')
 
+            # Update learning rate if scheduled by the monitor
+            if self._monitor.do_lr_step():
+                self._lr_scheduler.step()
+
             # Increase monitor's internal iteration counter
-            self._monitor.update()
+            self._monitor.step()
 
         # Print summary of the training run
         self._logger.log_string(self._monitor.summary_string())
@@ -181,7 +190,7 @@ class Trainer:
                                                     loss)
 
                 # Perform validation if scheduled by the monitor
-                if ((batch_id + 1) % self._monitor.LOG_FREQ) == 0:
+                if self._monitor.do_logging(it=(batch_id + 1)):
                     self._logger.log_string(
                         f'#### Batch ID: {batch_id+1}/'
                         f'{len(self._data_loaders[split])} ####')
@@ -323,6 +332,10 @@ class Trainer:
         optim_state_dict = checkpoint['optimizer']
 
         return model_state_dict, optim_state_dict, monitor
+
+    def get_lr(self):
+        for param_group in self._optimizer.param_groups:
+            return param_group['lr']
 
     def _log_progress(self, log_dict):
         """
