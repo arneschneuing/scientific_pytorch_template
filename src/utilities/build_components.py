@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+from torch.optim.lr_scheduler import StepLR
 from src.utilities.metric_tracker import MetricTracker
 from src.data_handlers.data_loader import InfiniteDataLoader
 
@@ -68,6 +69,13 @@ def build_criterion(cfg):
     """
 
     return nn.CrossEntropyLoss()
+
+
+def build_lr_scheduler(cfg, optimizer):
+    step_size = cfg['lr_step_size']
+    gamma = cfg['lr_gamma']
+    return StepLR(optimizer, step_size=step_size, gamma=gamma,
+                  last_epoch=-1)
 
 
 def build_metric_trackers(cfg):
