@@ -101,7 +101,8 @@ class Trainer:
                 if self._logger.write_tb:
                     self._logger.tb.train()  # Set tb logger to train mode
                     for key, value in log_dict.items():
-                        self._logger.tb.add_scalar(key, value, self._monitor.it)
+                        self._logger.tb.add_scalar(key, value,
+                                                   self._monitor.it)
 
                     # Flush tensorboard
                     self._logger.tb.flush()
@@ -334,6 +335,10 @@ class Trainer:
         return model_state_dict, optim_state_dict, monitor
 
     def get_lr(self):
+        """
+        Get current learning rate.
+        :return: learning rate
+        """
         for param_group in self._optimizer.param_groups:
             return param_group['lr']
 
