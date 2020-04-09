@@ -15,35 +15,35 @@ class Controller:
     optimization. Single training runs will be started for each parameter
     configuration.
     """
-    def __init__(self, cfg_path, result_dir, setup, overwrite):
+    def __init__(self, cfg_path, result_dir, session, overwrite):
         """
         :param cfg_path: string | relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
         logs, checkpoints and other outputs will be saved
-        :param setup: string | name of the setup
-        :param overwrite: Boolean | overwrite setup directory
+        :param session: string | name of the session
+        :param overwrite: bool | overwrite session directory
         """
 
         # Get ID of next experiment to be performed
-        self._experiment_id, self._setup_path = \
-            self._create_folder_structure(result_dir, setup, overwrite)
+        self._experiment_id, self._session_path = \
+            self._create_folder_structure(result_dir, session, overwrite)
 
-        # Set config file for current setup
+        # Set config file for current session
         self._config_path = cfg_path
         self._cfg = self._read_config_file(cfg_path)
 
         # Extract config files for each parameter configuration in current
-        # setup
+        # session
         self._experiment_cfgs = self._split_config()
 
         # Copy main configuration file
-        cfg_copy_path = os.path.join(self._setup_path,
+        cfg_copy_path = os.path.join(self._session_path,
                                      os.path.basename(cfg_path))
         copyfile(cfg_path, cfg_copy_path)
 
-        # Copy code to setup folder
+        # Copy code to session folder
         if self._cfg['Logging'].get('copy_code', False):
-            code_copy_path = os.path.join(self._setup_path, 'code')
+            code_copy_path = os.path.join(self._session_path, 'code')
             copy_code(code_copy_path)
 
     @staticmethod
@@ -53,61 +53,61 @@ class Controller:
         return cfg
 
     @staticmethod
-    def _create_folder_structure(result_dir, setup, overwrite):
+    def _create_folder_structure(result_dir, session, overwrite):
         """
         Create required directories for the saving of experimental results.
         :param result_dir: string | relative path to result directory
-        :param setup: string | name of the current setup
-        :param overwrite: Boolean | overwrite setup directory
+        :param session: string | name of the current session
+        :param overwrite: bool | overwrite session directory
         :return:
             experiment_id: int | ID of the next experiment (1 if first)
-            setup_path: string | path to setup directory
+            session_path: string | path to session directory
         """
 
         # Create result dir
         os.makedirs(result_dir, exist_ok=True)
 
-        # Make setup path
-        setup_path = os.path.join(result_dir, setup)
+        # Make session path
+        session_path = os.path.join(result_dir, session)
 
         # Check if overwrite mode is turned on
         if overwrite:
             try:
-                rmtree(setup_path)
+                rmtree(session_path)
             except FileNotFoundError:
                 # nothing to overwrite
                 pass
 
-        # Check if setup dir already exists
-        if os.path.isdir(setup_path) and len(os.listdir(setup_path)) > 0:
-            print(f'Directory {setup_path} already exists. Continue '
+        # Check if session dir already exists
+        if os.path.isdir(session_path) and len(os.listdir(session_path)) > 0:
+            print(f'Directory {session_path} already exists. Continue '
                   f'training? [y]/n')
             c = input()
             if c == 'y' or c == '':
-                print(f'Continue experiments in {setup_path}.')
+                print(f'Continue experiments in {session_path}.')
             else:
                 print('Exiting...')
                 exit()
 
             # Get experiment ID as ID of last available experiment
-            experiment_id = int(get_latest_version(setup_path, 'experiment_')
+            experiment_id = int(get_latest_version(session_path, 'experiment_')
                                 .strip('experiment_'))
 
         else:
 
-            # Create setup directory
-            os.makedirs(setup_path, exist_ok=True)
+            # Create session directory
+            os.makedirs(session_path, exist_ok=True)
 
-            print(f'Create new setup in directory {setup_path}.')
+            print(f'Create new session in directory {session_path}.')
 
             # Set initial experiment ID to 1
             experiment_id = 1
 
-        return experiment_id, setup_path
+        return experiment_id, session_path
 
     def _split_config(self):
         """
-        Split setup-level cfg dict into experiment-level cfg dicts.
+        Split session-level cfg dict into experiment-level cfg dicts.
         :return: iterator of experiment-level cfg dicts
         """
 
@@ -184,14 +184,14 @@ class Controller:
         """
 
         # Iterate over config dicts for all parameter combinations specified in
-        # setup-level config file
+        # session-level config file
         for cfg in self._experiment_cfgs:
 
             # Set path to result dir for current experiment
             experiment_dir = f"experiment_{self._experiment_id}"
 
             # Get full experiment path
-            experiment_path = os.path.join(self._setup_path, experiment_dir)
+            experiment_path = os.path.join(self._session_path, experiment_dir)
 
             print(f'Schedule experiment {self._experiment_id}!')
 
