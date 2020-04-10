@@ -1,4 +1,4 @@
-# Scientific Pytorch Template
+# Scientific PyTorch Template
 
 1. [Introduction](#introduction)
 2. [Implementation Details](#implementation-details)
