@@ -108,7 +108,7 @@ def copy_code(dest_dir):
     ignore = [x.strip('\n').strip('/') for x in ignore]
 
     # Add further items to ignore
-    ignore += ['.gitignore', '.git', '*.yaml', 'README.md']
+    ignore += ['.gitignore', '.git', '*.yaml', 'README.md', 'images']
 
     # Copy files to new location
     safe_copytree(base_dir, dest_dir, ignore)

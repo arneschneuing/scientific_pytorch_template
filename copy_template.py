@@ -21,7 +21,7 @@ with open(gitignore) as f:
 ignore = [x.strip('\n').strip('/') for x in ignore]
 
 # Add further items to ignore
-ignore += ['.gitignore', '.git', 'copy_template.py', 'README.md']
+ignore += ['.gitignore', '.git', 'copy_template.py', 'README.md', 'images']
 
 # Copy files to new location
 safe_copytree(template_dir, destination, ignore)
