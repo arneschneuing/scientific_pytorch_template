@@ -27,10 +27,20 @@ The controller object operates at the highest level of the framework and control
 
 #### Session-level Config
 
+In order to be able to create several experiments using a single config file, we rely on a simple mechanism. Every parameter
+for which several values should be tested, is to be provided in the form of a list containing all values. Since there might exist other parameters for which a list is required to specify a single experiment, e.g. a list of loss weights, we choose to add a trailing underscore to indicate parameter values for several experiments. For example, the following config file would create six experiments for all possible combinations of batch size and learning rate, using the same loss weights for all experiments.
 
+```
+learning_rate_: [0.001, 0.01, 0.1]
+batch_size_: [8, 16]
+loss_weights: [1.0, 10.0, 0.001]
+```
 
+For now, the template only supports grid searches. However, the concept can be extended to other methods such as random search or bayesian optimization by slightly adjusting thes session-level config syntax.
 
 ### Trainer
+
+The trainer object operates at the experiment-level and has no knowledge of other experiments being scheduled within the same session. It is instantiated by the controller, passing only the config file for the respective experiment and the path to the result directory. The trainer handles the training and evaluation for one fixed set of parameters and is further responsible for the visualization and saving of the experimental results. In the figure below we provide an illustration of the trainer's modules and explain their individual functions in the following sections.
 
 #### Components
 
