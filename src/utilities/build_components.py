@@ -72,10 +72,13 @@ def build_criterion(cfg):
 
 
 def build_lr_scheduler(cfg, optimizer):
-    step_size = cfg['lr_step_size']
-    gamma = cfg['lr_gamma']
-    return StepLR(optimizer, step_size=step_size, gamma=gamma,
-                  last_epoch=-1)
+    if cfg.get('LR_Scheduler') is None:
+        return None
+    else:
+        step_size = cfg['LR_Scheduler']['step_size']
+        gamma = cfg['LR_Scheduler']['gamma']
+        return StepLR(optimizer, step_size=step_size, gamma=gamma,
+                      last_epoch=-1)
 
 
 def build_metric_trackers(cfg):
@@ -90,15 +93,14 @@ def build_optimizer(cfg, params):
     :return:
     """
 
-    learning_rate = cfg['learning_rate']
-    momentum = cfg['sgd_momentum']
-    return optim.SGD(params, lr=learning_rate, momentum=momentum)
+    learning_rate = cfg['Optimizer']['learning_rate']
+    return optim.SGD(params, lr=learning_rate)
 
 
 if __name__ == '__main__':
 
     # Create config
-    cfg = {'batch_size': 64, 'learning_rate': 0.01, 'sgd_momentum': 0.5}
+    cfg = {'batch_size': 64, 'Optimizer': {'learning_rate': 0.01}}
 
     # Build data loaders
     data_loaders = build_dataloaders(cfg=cfg)
@@ -139,7 +141,7 @@ if __name__ == '__main__':
         # print(f'Loss: {loss}')
 
         # Update metric tracker
-        metric_tracker.update(batch_output, batch_labels)
+        metric_tracker.update(batch_output, batch_labels, loss)
 
         print(f'Accuracy: {metric_tracker.get_metrics()}')
 

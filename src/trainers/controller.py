@@ -42,7 +42,7 @@ class Controller:
         copyfile(cfg_path, cfg_copy_path)
 
         # Copy code to session folder
-        if self._cfg['Logging'].get('copy_code', False):
+        if self._cfg.get('copy_code', False):
             code_copy_path = os.path.join(self._session_path, 'code')
             copy_code(code_copy_path)
 

@@ -33,7 +33,7 @@ class Trainer:
         self._lr_scheduler = build_lr_scheduler(cfg, self._optimizer)
 
         # Use GPUs if available
-        self._device, device_ids = self._prepare_device(cfg['n_gpu'])
+        self._device, device_ids = self._prepare_device(cfg.get('n_gpu', 0))
         self._model = self._model.to(self._device)  # Send model to device
         if len(device_ids) > 1:
             self._model = torch.nn.DataParallel(self._model,
@@ -118,11 +118,11 @@ class Trainer:
                     epochs_trained = (self._monitor.it + 1) // \
                                      self._monitor.batches_per_epoch
                     self._logger.log_string(
-                        f'#### Evaluation ({epochs_trained} Epochs trained)')
+                        f'#### Evaluation ({epochs_trained} epoch(s) trained)')
                 else:
                     self._logger.log_string(
                         f'#### Evaluation ({self._monitor.it + 1} '
-                        f'Iterations trained)')
+                        f'iterations trained)')
 
                 # Validate on the whole validation dataset
                 self.evaluate(split='val')
@@ -153,7 +153,7 @@ class Trainer:
                                         f'score: {val_dict["acc"]:.4f}!')
 
             # Update learning rate if scheduled by the monitor
-            if self._monitor.do_lr_step():
+            if self._lr_scheduler is not None and self._monitor.do_lr_step():
                 self._lr_scheduler.step()
 
             # Increase monitor's internal iteration counter
