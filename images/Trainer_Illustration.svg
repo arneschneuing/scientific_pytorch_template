@@ -5,30 +5,50 @@
   </defs>
   <g transform="matrix(1, 0, 0, 1, -29.178762, -106.464244)">
     <title>Trainer</title>
-    <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0);" x="86.841" y="161.703" width="248.912" height="202.665" rx="5" ry="5"/>
-    <text style="font-family: &quot;CMU Serif&quot;; font-size: 28px; white-space: pre;" x="166.569" y="195.968">Trainer</text>
-    <g transform="matrix(0.981222, 0, 0, 0.947893, 162.099243, 75.106438)">
+    <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0);" x="62.516" y="161.703" width="433.976" height="218.492" rx="5" ry="5"/>
+    <text style="font-family: &quot;CMU Serif&quot;; font-size: 28px; white-space: pre;" x="236.359" y="196.028">Trainer</text>
+    <g transform="matrix(0.981222, 0, 0, 0.947893, 324.743103, 75.106438)">
       <title>Monitor</title>
-      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="85.753" y="147.295" width="81.531" height="36.924" rx="5" ry="5"/>
-      <text style="font-family: &quot;CMU Serif&quot;; font-size: 20.8px; stroke-width: 1.03674px; white-space: pre;" x="89.86" y="171.624">Monitor</text>
-    </g>
-    <g transform="matrix(0.978043, 0, 0, 0.969816, 162.371872, 90.926804)">
-      <title>Logger</title>
-      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.02677px;" x="85.753" y="174.469" width="81.796" height="36.089" rx="5" ry="5"/>
-      <text style="font-family: &quot;CMU Serif&quot;; font-size: 20.3px; stroke-width: 1.02677px; white-space: pre;" x="96.618" y="198.185">Logger</text>
-    </g>
-    <g transform="matrix(0.722566, 0, 0, 0.722702, 13.871833, 107.632797)">
-      <title>Components</title>
-      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.38396px;" x="114.149" y="148.213" width="193.754" height="193.717" rx="5" ry="5"/>
-      <text style="font-family: &quot;CMU Serif&quot;; font-size: 27.7px; stroke-width: 1.38396px; white-space: pre;" x="136.112" y="186.949">Components</text>
-      <g transform="matrix(1, 0, 0, 1, 24.166626, -18.409962)">
+      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="9.265" y="147.295" width="158.019" height="76.61" rx="5" ry="5"/>
+      <g transform="matrix(0.736394, 0, 0, 0.76243, -76.913628, -52.70845)">
         <title>Texts</title>
-        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="154.112" y="242.344">Dataset</text>
-        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="160.48" y="267.725">Model</text>
-        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="148.613" y="293.101">Criterion</text>
-        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="144.339" y="318.475">Optimizer</text>
-        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="124.105" y="343.859">Metric Tracker</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 15.2px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="174.245" y="318.475">Early Stopping</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 15.2px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="124.464" y="343.859">Ckpt/Val/Log/LR Scheduling</text>
       </g>
+      <text style="font-family: &quot;CMU Serif&quot;; font-size: 20.8px; stroke-width: 1.03674px; white-space: pre;" x="51.604" y="171.139">Monitor</text>
+    </g>
+    <g transform="matrix(0.722566, 0, 0, 0.722702, 100.347893, 107.612549)">
+      <title>Components</title>
+      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.38396px;" x="-40.298" y="148.213" width="348.201" height="216.263" rx="5" ry="5"/>
+      <text style="font-family: &quot;CMU Serif&quot;; font-size: 27.7px; stroke-width: 1.38396px; white-space: pre;" x="59.275" y="192.279">Components</text>
+      <g transform="matrix(1, 0, 0, 1, 0.847994, 21.085083)">
+        <title>Boxes</title>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="-24.817" y="196.327" width="94.241" height="53.787" rx="5" ry="5"/>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="85.834" y="196.327" width="94.241" height="53.787" rx="5" ry="5"/>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="196.485" y="196.327" width="94.241" height="53.787" rx="5" ry="5"/>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="-24.817" y="271.224" width="94.241" height="53.787" rx="5" ry="5"/>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="85.834" y="271.224" width="94.241" height="53.787" rx="5" ry="5"/>
+        <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="196.485" y="271.224" width="94.241" height="53.787" rx="5" ry="5"/>
+      </g>
+      <g transform="matrix(1, 0, 0, 1, 16.513996, -98.455597)">
+        <title>Texts</title>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre; text-anchor: middle;" x="-46.678" y="348.302" transform="matrix(1, 0, 0, 1, 53.317184, -9.707577)">Data <tspan x="-46.678001403808594" dy="1em">​</tspan>Loader</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="90.917" y="348.302">Model</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="185.42" y="348.298">Optimizer</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="-31.61" y="423.196">Criterion</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre; text-anchor: middle;" x="54.54" y="423.2" transform="matrix(1, 0, 0, 1, 62.749435, -9.701199)">Metric<tspan x="54.540000915527344" dy="1em">​</tspan>Tracker</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 19.4px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre; text-anchor: middle;" x="53.746" y="424.624" transform="matrix(1, 0, 0, 1, 174.197311, -11.123074)">LR<tspan x="53.74599838256836" dy="1em">​</tspan>Scheduler</text>
+      </g>
+    </g>
+    <g transform="matrix(0.981222, 0, 0, 0.947893, 324.743103, 158.782059)">
+      <title>Logger</title>
+      <rect style="fill: rgb(255, 255, 255); stroke: rgb(0, 0, 0); stroke-width: 1.03674px;" x="9.265" y="147.295" width="158.019" height="76.61" rx="5" ry="5"/>
+      <g transform="matrix(0.736394, 0, 0, 0.76243, -57.617805, -49.444195)">
+        <title>Texts</title>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 15.2px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="127.917" y="318.475">Tensorboard Logging</text>
+        <text style="font-family: &quot;CMU Serif&quot;; font-size: 15.2px; line-height: 33.215px; stroke-width: 1.38396px; white-space: pre;" x="156.792" y="343.859">File Logging</text>
+      </g>
+      <text style="font-family: &quot;CMU Serif&quot;; font-size: 20.8px; stroke-width: 1.03674px; white-space: pre;" x="57.495" y="171.624">Logger</text>
     </g>
   </g>
 </svg>
