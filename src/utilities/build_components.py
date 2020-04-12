@@ -32,7 +32,15 @@ def build_dataloaders(cfg):
                                            (0.1307,), (0.3081,))])),
         batch_size=cfg['batch_size'], shuffle=True)
 
-    return {'train': train_loader, 'val': val_loader}
+    test_loader = torch.utils.data.DataLoader(
+        torchvision.datasets.MNIST('./tmp/files', train=False, download=True,
+                                   transform=torchvision.transforms.Compose([
+                                       torchvision.transforms.ToTensor(),
+                                       torchvision.transforms.Normalize(
+                                           (0.1307,), (0.3081,))])),
+        batch_size=cfg['batch_size'], shuffle=True)
+
+    return {'train': train_loader, 'val': val_loader, 'test': test_loader}
 
 
 def build_model(cfg):
@@ -82,7 +90,7 @@ def build_lr_scheduler(cfg, optimizer):
 
 
 def build_metric_trackers(cfg):
-    return {'train': MetricTracker(), 'val': MetricTracker()}
+    return {'train': MetricTracker(), 'eval': MetricTracker()}
 
 
 def build_optimizer(cfg, params):

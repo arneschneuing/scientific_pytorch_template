@@ -1,8 +1,4 @@
-n_gpu: 1
 batch_size: 32
-num_epochs: 3
-val_freq: 1
-copy_code: False
 Optimizer:
   learning_rate: 0.1
 LR_Scheduler:
@@ -11,3 +7,12 @@ LR_Scheduler:
 Logging:
   write_file: True
   write_tb: True
+Misc:
+  num_iterations: 1870
+  val_freq: 1000
+  checkpoint_freq: 1000
+  copy_code: True
+  n_gpu: 1
+  eval_after_training: True
+  validation_split: test
+

@@ -51,7 +51,7 @@ class Trainer:
             self._monitor = Monitor(self._cfg, len(self._data_loaders['train']))
 
             # Log start of new training run
-            log_string_1 = '#### Start new training! ####'
+            log_string_1 = 'Start new training!'
             log_string_2 = f'Result Dir: {result_dir}'
             self._logger.log_string(log_string_1 + '\n' + log_string_2)
 
@@ -114,22 +114,26 @@ class Trainer:
             # Perform validation if scheduled by the monitor
             if self._monitor.do_validation():
 
+                # Get validation split
+                val_split = self._cfg.get('validation_split', 'val')
+
                 # Inform user about evaluation status
                 if self._monitor.epoch_based:
                     epochs_trained = (self._monitor.it + 1) // \
                                      self._monitor.batches_per_epoch
                     self._logger.log_string(
-                        f'#### Evaluation ({epochs_trained} epoch(s) trained)')
+                        f'\nValidation on {val_split} set '
+                        f'({epochs_trained} epoch(s) trained)')
                 else:
                     self._logger.log_string(
-                        f'#### Evaluation ({self._monitor.it + 1} '
-                        f'iterations trained)')
+                        f'\nValidation on {val_split} set '
+                        f'({self._monitor.it + 1} iterations trained)')
 
                 # Validate on the whole validation dataset
-                self.evaluate(split='val')
+                self.evaluate(split=val_split)
 
                 # Get metrics
-                val_dict = self._metric_trackers['val'].get_metrics()
+                val_dict = self._metric_trackers['eval'].get_metrics()
 
                 # Tensorboard Logging
                 if self._logger.write_tb:
@@ -139,7 +143,11 @@ class Trainer:
                                                    self._monitor.it)
 
                 # Update monitor with the latest validation score
-                self._monitor.register_result(val_dict['acc'])
+                self._monitor.register_val_result(val_dict['acc'])
+
+                # Print validation results
+                self._logger.log_string(f'Validation finished with '
+                                        f'score: {val_dict["acc"]:.4f}!')
 
                 # Perform model saving according to monitor flags
                 if self._monitor.flags.save_checkpoint:
@@ -148,10 +156,7 @@ class Trainer:
                     self._save_checkpoint(save_best=True)
 
                 # Reset metric tracker
-                self._metric_trackers['val'].reset()
-
-                self._logger.log_string(f'Evaluation finished with '
-                                        f'score: {val_dict["acc"]:.4f}!')
+                self._metric_trackers['eval'].reset()
 
             # Update learning rate if scheduled by the monitor
             if self._lr_scheduler is not None and self._monitor.do_lr_step():
@@ -159,6 +164,35 @@ class Trainer:
 
             # Increase monitor's internal iteration counter
             self._monitor.step()
+
+        # Perform evaluation on test set if specified
+        if self._cfg.get('eval_after_training', False):
+
+            # Check that test dataset available
+            if 'test' in self._data_loaders.keys():
+                # Load best model
+                best_model_path = os.path.join(self._result_dir, 'Checkpoints',
+                                               'best_model.pth')
+                best_model = torch.load(best_model_path)
+                self._model.load_state_dict(best_model['state_dict'])
+
+                # Inform user about test set evaluation
+                self._logger.log_string('\nEvaluation on test set '
+                                        '(End of Training)')
+
+                # Evaluate performance on test split
+                self.evaluate(split='test')
+
+                # Get metrics
+                test_dict = self._metric_trackers['eval'].get_metrics()
+
+                # Update monitor with the latest validation score
+                self._monitor.register_test_result(test_dict['acc'])
+
+            else:
+                self._logger.log_file('Final evaluation not possible as no'
+                                      'test data loader is available. Skipping'
+                                      'Evaluation...')
 
         # Print summary of the training run
         self._logger.log_string(self._monitor.summary_string())
@@ -169,7 +203,7 @@ class Trainer:
     def evaluate(self, split):
 
         # Assert that a valid split is provided
-        assert split in ['train', 'val'], 'Incorrect split name provided!'
+        assert split in ['test', 'val'], 'Incorrect split name provided!'
 
         # Set model to eval mode
         self._model.eval()
@@ -188,14 +222,14 @@ class Trainer:
                 loss = self._criterion(batch_output, batch_target)
 
                 # Update metric tracker
-                self._metric_trackers['val'].update(batch_output, batch_target,
-                                                    loss)
+                self._metric_trackers['eval'].update(batch_output,
+                                                     batch_target, loss)
 
                 # Perform validation if scheduled by the monitor
                 if self._monitor.do_logging(it=(batch_id + 1)):
                     self._logger.log_string(
-                        f'#### Batch ID: {batch_id+1}/'
-                        f'{len(self._data_loaders[split])} ####')
+                        f'Iteration: {batch_id+1}/'
+                        f'{len(self._data_loaders[split])}')
 
     def _train_it(self):
 
@@ -285,7 +319,7 @@ class Trainer:
         torch.save(state, ckpt_path)
 
         # Log saving
-        self._logger.log_string(f'Saving checkpoint: {ckpt_path} ...')
+        self._logger.log_string(f'Saving checkpoint: {ckpt_path}')
 
     def _resume_checkpoint(self):
         """
@@ -354,13 +388,13 @@ class Trainer:
             current_epoch, epoch_it = self._monitor.i2e()
 
             # Set progress string
-            prog_string = f'#### Epoch: {current_epoch} | ' \
+            prog_string = f'Epoch: {current_epoch} | ' \
                           f'Iteration: {epoch_it}/' \
-                          f'{self._monitor.batches_per_epoch} ####'
+                          f'{self._monitor.batches_per_epoch}'
         else:
             # Set progress string
-            prog_string = f'#### Iteration: {self._monitor.it + 1}/' \
-                          f'{self._monitor.num_iterations} ####'
+            prog_string = f'Iteration: {self._monitor.it + 1}/' \
+                          f'{self._monitor.num_iterations}'
 
         # Log string
         self._logger.log_string(prog_string)
