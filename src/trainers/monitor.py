@@ -150,8 +150,7 @@ class Monitor:
         checkpoint_freq = cfg.get('checkpoint_freq', None)
         val_freq = cfg.get('val_freq', None)
         log_freq = cfg.get('log_freq', None)
-        lr_freq = cfg['LR_Scheduler'].get('lr_freq', None) \
-            if cfg.get('LR_Scheduler', False) else None
+        lr_freq = cfg.get('lr_freq', None)
 
         # Check for missing information
         if num_epochs is None and num_iterations is None:

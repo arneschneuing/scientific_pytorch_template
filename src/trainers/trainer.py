@@ -16,24 +16,25 @@ class Trainer:
     def __init__(self, result_dir, cfg):
 
         # Set experiment-level config
-        self._cfg = cfg
+        self._cfg = util.flatten_cfg(cfg)
 
         # Set result dir
         self._result_dir = result_dir
 
         # Create logger
-        self._logger = Logger(result_dir, cfg)
+        self._logger = Logger(result_dir, self._cfg)
 
         # Build components
-        self._data_loaders = build_dataloaders(cfg)
-        self._model = build_model(cfg)
-        self._criterion = build_criterion(cfg)
-        self._metric_trackers = build_metric_trackers(cfg)
-        self._optimizer = build_optimizer(cfg, self._model.parameters())
-        self._lr_scheduler = build_lr_scheduler(cfg, self._optimizer)
+        self._data_loaders = build_dataloaders(self._cfg)
+        self._model = build_model(self._cfg)
+        self._criterion = build_criterion(self._cfg)
+        self._metric_trackers = build_metric_trackers(self._cfg)
+        self._optimizer = build_optimizer(self._cfg, self._model.parameters())
+        self._lr_scheduler = build_lr_scheduler(self._cfg, self._optimizer)
 
         # Use GPUs if available
-        self._device, device_ids = self._prepare_device(cfg.get('n_gpu', 0))
+        self._device, device_ids = self._prepare_device(self._cfg.get('n_gpu',
+                                                                      0))
         self._model = self._model.to(self._device)  # Send model to device
         if len(device_ids) > 1:
             self._model = torch.nn.DataParallel(self._model,
@@ -47,7 +48,7 @@ class Trainer:
             os.makedirs(result_dir, exist_ok=True)
 
             # Create monitor for current training run
-            self._monitor = Monitor(cfg, len(self._data_loaders['train']))
+            self._monitor = Monitor(self._cfg, len(self._data_loaders['train']))
 
             # Log start of new training run
             log_string_1 = '#### Start new training! ####'
