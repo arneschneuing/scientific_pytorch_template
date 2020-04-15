@@ -32,7 +32,15 @@ def build_dataloaders(cfg):
                                            (0.1307,), (0.3081,))])),
         batch_size=cfg['batch_size'], shuffle=True)
 
-    return {'train': train_loader, 'val': val_loader}
+    test_loader = torch.utils.data.DataLoader(
+        torchvision.datasets.MNIST('./tmp/files', train=False, download=True,
+                                   transform=torchvision.transforms.Compose([
+                                       torchvision.transforms.ToTensor(),
+                                       torchvision.transforms.Normalize(
+                                           (0.1307,), (0.3081,))])),
+        batch_size=cfg['batch_size'], shuffle=True)
+
+    return {'train': train_loader, 'val': val_loader, 'test': test_loader}
 
 
 def build_model(cfg):
@@ -75,14 +83,14 @@ def build_lr_scheduler(cfg, optimizer):
     if cfg.get('LR_Scheduler') is None:
         return None
     else:
-        step_size = cfg['LR_Scheduler']['step_size']
-        gamma = cfg['LR_Scheduler']['gamma']
+        step_size = cfg['step_size']
+        gamma = cfg['gamma']
         return StepLR(optimizer, step_size=step_size, gamma=gamma,
                       last_epoch=-1)
 
 
 def build_metric_trackers(cfg):
-    return {'train': MetricTracker(), 'val': MetricTracker()}
+    return {'train': MetricTracker(), 'eval': MetricTracker()}
 
 
 def build_optimizer(cfg, params):
@@ -93,7 +101,7 @@ def build_optimizer(cfg, params):
     :return:
     """
 
-    learning_rate = cfg['Optimizer']['learning_rate']
+    learning_rate = cfg.get('learning_rate', None)
     return optim.SGD(params, lr=learning_rate)
 
 

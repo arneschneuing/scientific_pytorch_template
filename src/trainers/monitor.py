@@ -44,7 +44,11 @@ class Monitor:
         end_training = (self.num_iterations - self._val_freq < 0)
         self.flags = MonitorFlags(False, False, end_training)
 
-    def register_result(self, score):
+        # Initialize test score (only used for summary printing if
+        # "eval_after_training" is set)
+        self._test_score = None
+
+    def register_val_result(self, score):
 
         # Initialize monitor flags
         save_checkpoint = False
@@ -150,8 +154,7 @@ class Monitor:
         checkpoint_freq = cfg.get('checkpoint_freq', None)
         val_freq = cfg.get('val_freq', None)
         log_freq = cfg.get('log_freq', None)
-        lr_freq = cfg['LR_Scheduler'].get('lr_freq', None) \
-            if cfg.get('LR_Scheduler', False) else None
+        lr_freq = cfg.get('lr_freq', None)
 
         # Check for missing information
         if num_epochs is None and num_iterations is None:
@@ -211,11 +214,28 @@ class Monitor:
 
         return epoch, epoch_it
 
+    def register_test_result(self, score):
+        """
+        Register test result for summary printing.
+        :param score: test score
+        """
+        self._test_score = score
+
     def summary_string(self):
         """
         Create a summary string
         """
 
+        # Set score string
+        if self._test_score is not None:
+            score_string = f'and achieved a score ' \
+                           f'of Val: {self._best_score:.4f} | ' \
+                           f'Test: {self._test_score:.4f}.\n'
+        else:
+            score_string = f'and achieved a score ' \
+                           f'of {self._best_score:.4f}.\n'
+
+        # Set summary string
         if self.epoch_based:
             # Get number of current epoch and iteration
             if self.it == 0:
@@ -237,8 +257,7 @@ class Monitor:
             best_model_string = f'Best model trained for ' \
                                 + epoch_string + \
                                 f'({self._best_iteration + 1} ' \
-                                f'iteration(s) in total) and achieved score ' \
-                                f'of {self._best_score:.4f}.\n'
+                                f'iteration(s) in total) ' + score_string
         else:
             # Set progress string
             prog_string = f'Iteration: {self.it}/{self.num_iterations}'
@@ -250,16 +269,19 @@ class Monitor:
                 best_iteration = self._best_iteration + 1
             best_model_string = f'Best model trained for ' \
                                 f'{best_iteration} iterations ' \
-                                f'achieved score of {self._best_score:.4f}.\n'
+                                + score_string
 
         if self._counter > self._patience:
             cause_of_stop = f"Training stopped because validation score " \
                             f"did not increase for {self._counter} " \
                             f"validation cycles.\n"
         else:
-            cause_of_stop = "Training stopped because number of outstanding " \
-                            "iterations went below the length of one " \
-                            "validation period.\n"
+            if self.it == self.num_iterations:
+                cause_of_stop = ''
+            else:
+                cause_of_stop = "Training stopped because number of " \
+                                "remaining iterations is less than " \
+                                "length of one validation period.\n"
 
         # Assemble output string
         summary_string = f"\nEnd of training ({prog_string})\n" + \

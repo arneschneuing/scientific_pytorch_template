@@ -4,7 +4,7 @@ from shutil import copyfile, rmtree
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
 from src.trainers.trainer import Trainer
-from src.utilities.util import get_latest_version, copy_code
+from src.utilities.util import get_latest_version, copy_code, flatten_cfg
 
 
 class Controller:
@@ -42,7 +42,7 @@ class Controller:
         copyfile(cfg_path, cfg_copy_path)
 
         # Copy code to session folder
-        if self._cfg.get('copy_code', False):
+        if flatten_cfg(self._cfg).get('copy_code', False):
             code_copy_path = os.path.join(self._session_path, 'code')
             copy_code(code_copy_path)
 

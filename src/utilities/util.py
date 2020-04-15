@@ -114,6 +114,41 @@ def copy_code(dest_dir):
     safe_copytree(base_dir, dest_dir, ignore)
 
 
+def flatten_cfg(cfg):
+    """
+    Flatten config dictionary. Removing sub-dicts allows for unified access to
+    all parameters. Unique keys are required for all parameters.
+    :param cfg: config dictionary with potentially several sub-dicts
+    :return: cfg_f: flatten config dict containing no other dicts
+    """
+
+    cfg_f = {}
+
+    def recurse(t, key=''):
+
+        # Flatten dictionary recursively
+        if isinstance(t, dict):
+            for k, v in t.items():
+                recurse(v, k)
+
+        # Add item if no dictionary
+        else:
+            # Check for ambiguous parameter names
+            if key in cfg_f.keys():
+                print(f'Error occurred while flattening config file. Key '
+                      f'"{key}" is provided more than once. \n'
+                      f'Unique keys are '
+                      f'required for all parameters. Exiting...')
+                exit()
+
+            cfg_f[key] = t
+
+    # Start recursion
+    recurse(cfg)
+
+    return cfg_f
+
+
 if __name__ == "__main__":
     safe_copytree('../..', '../../results/code',
                   ignore_list=['tmp', '.git', 'results'])
