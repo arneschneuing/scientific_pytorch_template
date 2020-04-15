@@ -23,7 +23,7 @@ class Monitor:
         self.batches_per_epoch = batches_per_epoch
 
         # Set counter of non-improved validation steps
-        self._counter = 0
+        self.counter = 0
 
         # Initialization best state for model saving
         self._best_score = 0
@@ -38,7 +38,7 @@ class Monitor:
 
         # Set early stopping patience if specified
         # Default: No early stopping
-        self._patience = self._cfg.get('patience', self.num_iterations)
+        self.patience = self._cfg.get('patience', self.num_iterations)
 
         # Initialize monitor flags
         end_training = (self.num_iterations - self._val_freq < 0)
@@ -69,10 +69,10 @@ class Monitor:
         elif score <= self._best_score:
 
             # Increment counter
-            self._counter += 1
+            self.counter += 1
 
             # Stop training if patience is reached
-            if self._counter > self._patience:
+            if self.counter >= self.patience:
                 stop_training = True
 
         # Validation score increased
@@ -82,7 +82,7 @@ class Monitor:
             new_best_model = True
 
             # Reset counter
-            self._counter = 0
+            self.counter = 0
 
         # Check if validation phase left before end of scheduled training
         if (self.it + 1) > (self.num_iterations - self._val_freq):
@@ -221,6 +221,15 @@ class Monitor:
         """
         self._test_score = score
 
+    def early_stopping(self):
+        """
+        Return True if early stopping is enabled.
+        """
+        early_stopping = True if self.patience < self.num_iterations \
+            else False
+
+        return early_stopping
+
     def summary_string(self):
         """
         Create a summary string
@@ -271,9 +280,9 @@ class Monitor:
                                 f'{best_iteration} iterations ' \
                                 + score_string
 
-        if self._counter > self._patience:
+        if self.counter > self.patience:
             cause_of_stop = f"Training stopped because validation score " \
-                            f"did not increase for {self._counter} " \
+                            f"did not increase for {self.counter} " \
                             f"validation cycles.\n"
         else:
             if self.it == self.num_iterations:

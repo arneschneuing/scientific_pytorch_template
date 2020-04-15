@@ -147,6 +147,12 @@ class Trainer:
                 self._logger.log_string(f'Validation finished with '
                                         f'score: {val_dict["acc"]:.4g}!')
 
+                # Print information about early stopping if enabled
+                if self._monitor.early_stopping():
+                    self._logger.log_string(f'Early Stopping Counter: '
+                                            f'{self._monitor.counter}/'
+                                            f'{self._monitor.patience}')
+
                 # Perform model saving according to monitor flags
                 if self._monitor.flags.save_checkpoint:
                     self._save_checkpoint()
