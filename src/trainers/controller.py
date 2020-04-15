@@ -164,8 +164,21 @@ class Controller:
         combinations = list(product(*param_lists))
 
         # Verify combinations before starting training runs
-        print(f'Found {len(combinations)} parameter combinations in config '
-              f'file {self._config_path}. Start experiments? [y]/n')
+        print(f'Found {len(combinations)} parameter combination(s) in config '
+              f'file {self._config_path}:')
+
+        # Print information about all experiments if more than a one
+        if len(combinations) > 1:
+            for exp_id, combination in enumerate(combinations):
+                param_string = f'Experiment {exp_id+1:<3}'
+
+                # Concatenate information about all parameters for current
+                # experiment
+                for param_id in range(len(param_keys)):
+                    param_string += f' | {param_keys[param_id][-1][:-1]}: ' \
+                                    f'{combination[param_id]:<10}'
+                print(param_string)
+        print('Start experiments? [y]/n')
         c = input()
         if c == '' or c == 'y':
             pass
