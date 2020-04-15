@@ -13,6 +13,7 @@ class Trainer:
     are saved
     :param cfg: config dict
     """
+
     def __init__(self, result_dir, cfg):
 
         # Set experiment-level config
@@ -48,7 +49,8 @@ class Trainer:
             os.makedirs(result_dir, exist_ok=True)
 
             # Create monitor for current training run
-            self._monitor = Monitor(self._cfg, len(self._data_loaders['train']))
+            self._monitor = Monitor(self._cfg,
+                                    len(self._data_loaders['train']))
 
             # Log start of new training run
             log_string_1 = 'Start new training!'
@@ -114,23 +116,19 @@ class Trainer:
             # Perform validation if scheduled by the monitor
             if self._monitor.do_validation():
 
-                # Get validation split
-                val_split = self._cfg.get('validation_split', 'val')
-
                 # Inform user about evaluation status
                 if self._monitor.epoch_based:
                     epochs_trained = (self._monitor.it + 1) // \
                                      self._monitor.batches_per_epoch
                     self._logger.log_string(
-                        f'\nValidation on {val_split} set '
-                        f'({epochs_trained} epoch(s) trained)')
+                        f'\nValidation ({epochs_trained} epoch(s) trained)')
                 else:
                     self._logger.log_string(
-                        f'\nValidation on {val_split} set '
+                        f'\nValidation'
                         f'({self._monitor.it + 1} iterations trained)')
 
                 # Validate on the whole validation dataset
-                self.evaluate(split=val_split)
+                self.evaluate(split='val')
 
                 # Get metrics
                 val_dict = self._metric_trackers['eval'].get_metrics()
@@ -165,34 +163,31 @@ class Trainer:
             # Increase monitor's internal iteration counter
             self._monitor.step()
 
-        # Perform evaluation on test set if specified
-        if self._cfg.get('eval_after_training', False):
+        # Check that test dataset available
+        if 'test' in self._data_loaders.keys():
+            # Load best model
+            best_model_path = os.path.join(self._result_dir, 'Checkpoints',
+                                           'best_model.pth')
+            best_model = torch.load(best_model_path)
+            self._model.load_state_dict(best_model['state_dict'])
 
-            # Check that test dataset available
-            if 'test' in self._data_loaders.keys():
-                # Load best model
-                best_model_path = os.path.join(self._result_dir, 'Checkpoints',
-                                               'best_model.pth')
-                best_model = torch.load(best_model_path)
-                self._model.load_state_dict(best_model['state_dict'])
+            # Inform user about test set evaluation
+            self._logger.log_string('\nEvaluation on test set '
+                                    '(End of Training)')
 
-                # Inform user about test set evaluation
-                self._logger.log_string('\nEvaluation on test set '
-                                        '(End of Training)')
+            # Evaluate performance on test split
+            self.evaluate(split='test')
 
-                # Evaluate performance on test split
-                self.evaluate(split='test')
+            # Get metrics
+            test_dict = self._metric_trackers['eval'].get_metrics()
 
-                # Get metrics
-                test_dict = self._metric_trackers['eval'].get_metrics()
+            # Update monitor with the latest validation score
+            self._monitor.register_test_result(test_dict['acc'])
 
-                # Update monitor with the latest validation score
-                self._monitor.register_test_result(test_dict['acc'])
-
-            else:
-                self._logger.log_file('Final evaluation not possible as no'
-                                      'test data loader is available. Skipping'
-                                      'Evaluation...')
+        else:
+            self._logger.log_file('Final evaluation not possible as no'
+                                  'test data loader is available. Skipping'
+                                  'Evaluation...')
 
         # Print summary of the training run
         self._logger.log_string(self._monitor.summary_string())
@@ -228,7 +223,7 @@ class Trainer:
                 # Perform validation if scheduled by the monitor
                 if self._monitor.do_logging(it=(batch_id + 1)):
                     self._logger.log_string(
-                        f'Iteration: {batch_id+1}/'
+                        f'Iteration: {batch_id + 1}/'
                         f'{len(self._data_loaders[split])}')
 
     def _train_it(self):

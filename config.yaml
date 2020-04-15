@@ -13,6 +13,4 @@ Misc:
   checkpoint_freq: 1000
   copy_code: True
   n_gpu: 1
-  eval_after_training: True
-  validation_split: test
 
