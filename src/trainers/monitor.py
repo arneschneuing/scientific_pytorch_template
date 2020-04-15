@@ -230,6 +230,18 @@ class Monitor:
 
         return early_stopping
 
+    def result_dict(self):
+        """
+        Create dict containing the final scores.
+        """
+
+        result_dict = {'val_score': self._best_score}
+
+        if self._test_score is not None:
+            result_dict['test_score'] = self._test_score
+
+        return result_dict
+
     def summary_string(self):
         """
         Create a summary string

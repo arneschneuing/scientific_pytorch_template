@@ -201,6 +201,8 @@ class Trainer:
         # Close tensorboard loggers
         self._logger.close()
 
+        return self._monitor.result_dict()
+
     def evaluate(self, split):
 
         # Assert that a valid split is provided

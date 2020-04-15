@@ -1,5 +1,7 @@
 import yaml
 import os
+import csv
+from collections import OrderedDict
 from shutil import copyfile, rmtree
 from itertools import product
 from src.utilities.config_iterator import CfgIterator
@@ -15,12 +17,14 @@ class Controller:
     optimization. Single training runs will be started for each parameter
     configuration.
     """
-    def __init__(self, cfg_path, result_dir, session, overwrite):
+    def __init__(self, cfg_path, result_dir, session, result_filename,
+                 overwrite):
         """
         :param cfg_path: string | relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
         logs, checkpoints and other outputs will be saved
         :param session: string | name of the session
+        :param result_filename: string | filename of csv file for result saving
         :param overwrite: bool | overwrite session directory
         """
 
@@ -35,6 +39,9 @@ class Controller:
         # Extract config files for each parameter configuration in current
         # session
         self._experiment_cfgs = self._split_config()
+
+        # Set path to result file
+        self._result_filename = result_filename
 
         # Copy main configuration file
         cfg_copy_path = os.path.join(self._session_path,
@@ -191,6 +198,49 @@ class Controller:
         return CfgIterator(self._cfg, combinations, param_keys,
                            self._experiment_id - 1)
 
+    def write_result_file(self, result_dict):
+        """
+        Write training results to csv file.
+        :param result_dict: dict containing results of finished training
+        """
+
+        # Create file dict
+        file_dict = OrderedDict()
+
+        # Add current experiment ID
+        file_dict['ID'] = self._experiment_id
+
+        # Add parameters of current experiment
+        for param_id in range(len(self._experiment_cfgs._keys)):
+            param_name = self._experiment_cfgs._keys[param_id][-1][:-1]
+            comb = self._experiment_cfgs._comb[self._experiment_id-1]
+            param_value = comb[param_id]
+            file_dict[param_name] = param_value
+
+        # Add result dict to file dict
+        file_dict.update(result_dict)
+
+        # Open result file. Create new file for first experiment
+        if self._experiment_id == 1:
+            f = open(self._result_filename, "w")
+        else:
+            f = open(self._result_filename, "a+")
+
+        # Create header
+        fieldnames = list(file_dict.keys())
+
+        # Create writer
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+
+        # Writer header for first experiment
+        if self._experiment_id == 1:
+            writer.writeheader()
+
+        # Add current results to file
+        writer.writerow(file_dict)
+
+        f.close()
+
     def start(self):
         """
         Start scheduling training runs.
@@ -209,7 +259,10 @@ class Controller:
             print(f'Schedule experiment {self._experiment_id}!')
 
             # Start training run for current config
-            Trainer(experiment_path, cfg).train()
+            result_dict = Trainer(experiment_path, cfg).train()
+
+            # Add training results to session-level result file
+            self.write_result_file(result_dict)
 
             # Increment experiment counter
             self._experiment_id += 1

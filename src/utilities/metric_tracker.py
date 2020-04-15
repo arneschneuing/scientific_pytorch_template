@@ -24,8 +24,8 @@ class MetricTracker:
         sm_predictions = nn.Softmax(dim=1)(prediction)
         cls_predictions = torch.argmax(sm_predictions, dim=1)
 
-        self.correct += torch.sum(cls_predictions == target).float()
-        self.incorrect += torch.sum(cls_predictions != target).float()
+        self.correct += torch.sum(cls_predictions == target).float().item()
+        self.incorrect += torch.sum(cls_predictions != target).float().item()
 
         self.loss += loss
         self.loss_updates += 1
