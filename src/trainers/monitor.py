@@ -229,11 +229,11 @@ class Monitor:
         # Set score string
         if self._test_score is not None:
             score_string = f'and achieved a score ' \
-                           f'of Val: {self._best_score:.4f} | ' \
-                           f'Test: {self._test_score:.4f}.\n'
+                           f'of Val: {self._best_score:.4g} | ' \
+                           f'Test: {self._test_score:.4g}.\n'
         else:
             score_string = f'and achieved a score ' \
-                           f'of {self._best_score:.4f}.\n'
+                           f'of {self._best_score:.4g}.\n'
 
         # Set summary string
         if self.epoch_based:

@@ -145,7 +145,7 @@ class Trainer:
 
                 # Print validation results
                 self._logger.log_string(f'Validation finished with '
-                                        f'score: {val_dict["acc"]:.4f}!')
+                                        f'score: {val_dict["acc"]:.4g}!')
 
                 # Perform model saving according to monitor flags
                 if self._monitor.flags.save_checkpoint:
@@ -396,4 +396,4 @@ class Trainer:
 
         # Log content of log dict
         for key, item in log_dict.items():
-            self._logger.log_string(f'{key:<15}: {item:.4f}')
+            self._logger.log_string(f'{key:<15}: {item:.4g}')
