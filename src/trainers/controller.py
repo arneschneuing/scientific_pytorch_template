@@ -41,7 +41,8 @@ class Controller:
         self._experiment_cfgs = self._split_config()
 
         # Set path to result file
-        self._result_filename = result_filename
+        self._result_filename = os.path.join(self._session_path,
+                                             result_filename)
 
         # Copy main configuration file
         cfg_copy_path = os.path.join(self._session_path,
@@ -208,7 +209,7 @@ class Controller:
         file_dict = OrderedDict()
 
         # Add current experiment ID
-        file_dict['ID'] = self._experiment_id
+        file_dict['experiment'] = self._experiment_id
 
         # Add parameters of current experiment
         for param_id in range(len(self._experiment_cfgs._keys)):
@@ -230,7 +231,7 @@ class Controller:
         fieldnames = list(file_dict.keys())
 
         # Create writer
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator='\n')
 
         # Writer header for first experiment
         if self._experiment_id == 1:
