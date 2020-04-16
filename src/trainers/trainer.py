@@ -66,7 +66,7 @@ class Trainer:
             self._optimizer.load_state_dict(optim_state_dict)
 
             # Prepare for next iteration of training
-            self._monitor.update()
+            self._monitor.step()
 
             # Log resumption of training run
             log_string_1 = f'Result Dir: {result_dir}'
