@@ -51,8 +51,11 @@ class Controller:
 
         # Copy code to session folder
         if flatten_cfg(self._cfg).get('copy_code', False):
-            code_copy_path = os.path.join(self._session_path, 'code')
-            copy_code(code_copy_path)
+            try:
+                code_copy_path = os.path.join(self._session_path, 'code')
+                copy_code(code_copy_path)
+            except FileExistsError:
+                print("Code folder already exists.")
 
     @staticmethod
     def _read_config_file(cfg_path):

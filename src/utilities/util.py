@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import fnmatch
 
 
 def get_number(s, token):
@@ -87,31 +88,66 @@ def safe_copytree(src, dst, ignore_list=None):
                                ignore=shutil.ignore_patterns(*ignore_list))
 
 
+def copy_recursively(src, dst, include, ignore):
+    """
+    Copy files recursively form src to dst
+    :param src: source directory
+    :param dst: destination directory
+    :param include: list of files to include (can be specified by patterns)
+    :param ignore: list of files and directories to ignore (can be specified by
+        patterns)
+    """
+    # Get the canonical paths
+    src_path = os.path.realpath(src)
+    dst_path = os.path.realpath(dst)
+
+    for name in os.listdir(src_path):
+        src_sub_path = os.path.realpath(os.path.join(src_path, name))
+        dst_sub_path = os.path.realpath(os.path.join(dst_path, name))
+
+        # if file/dir is in ignore list do nothing
+        if any([fnmatch.fnmatch(name, pat) for pat in ignore]):
+            continue
+
+        # call function recursively but avoid infinite recursion
+        elif os.path.isdir(src_sub_path) and src_sub_path != dst_path:
+            copy_recursively(src_sub_path, dst_sub_path, include, ignore)
+
+        # copy file if included
+        elif any([fnmatch.fnmatch(name, pat) for pat in include]):
+            # create directory tree
+            os.makedirs(dst_path, exist_ok=True)
+            # copy file
+            shutil.copy2(src_sub_path, dst_sub_path)
+
+        else:
+            continue
+
+
 def copy_code(dest_dir):
     """
     Copy source code to dest_dir
     :param dest_dir: destination
     """
-
     # Get base directory
     base_dir = os.path.dirname(
-        os.path.realpath(os.path.join(__file__, '../..')))
+        os.path.realpath(os.path.join(__file__, '..', '..')))
 
-    # Make sure important files are present
-    assert os.path.isdir(os.path.join(base_dir, 'src'))
-    assert os.path.isfile(os.path.join(base_dir, 'train.py'))
+    # Decide what files to copy
+    include = ['*.py']
 
-    # Read gitignore
-    gitignore = os.path.join(base_dir, '.gitignore')
-    with open(gitignore) as f:
-        ignore = f.readlines()
-    ignore = [x.strip('\n').strip('/') for x in ignore]
+    # Decide what files to ignore
+    ignore = ['results']
 
-    # Add further items to ignore
-    ignore += ['.gitignore', '.git', '*.yaml', 'README.md', 'images']
+    # Get the canonical paths
+    src_path = os.path.realpath(base_dir)
+    dst_path = os.path.realpath(dest_dir)
 
-    # Copy files to new location
-    safe_copytree(base_dir, dest_dir, ignore)
+    # create code directory
+    os.makedirs(dst_path, exist_ok=False)
+
+    # copy files recursively
+    copy_recursively(src_path, dst_path, include, ignore)
 
 
 def flatten_cfg(cfg):
@@ -150,5 +186,6 @@ def flatten_cfg(cfg):
 
 
 if __name__ == "__main__":
-    safe_copytree('../..', '../../results/code',
-                  ignore_list=['tmp', '.git', 'results'])
+    # safe_copytree('../..', '../../results/code',
+    #               ignore_list=['tmp', '.git', 'results'])
+    copy_code('../../results/mnist_test/code')
