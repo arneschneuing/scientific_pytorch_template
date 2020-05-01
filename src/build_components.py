@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 from torch.optim.lr_scheduler import StepLR
-from src.utilities.metric_tracker import MetricTracker
+from src.core_components.metric_tracker import MetricTracker
 from src.data_handlers.data_loader import InfiniteDataLoader
 
 

@@ -1,9 +1,9 @@
 import os
 import yaml
-from src.utilities import util
-from src.loggers.logger import Logger
-from src.trainers.monitor import Monitor
-from src.utilities.build_components import *
+from src.utilities import template_utils
+from src.core_components.logger import Logger
+from src.core_components.monitor import Monitor
+from src.build_components import *
 
 
 class Trainer:
@@ -17,7 +17,7 @@ class Trainer:
     def __init__(self, result_dir, cfg):
 
         # Set experiment-level config
-        self._cfg = util.flatten_cfg(cfg)
+        self._cfg = template_utils.flatten_cfg(cfg)
 
         # Set result dir
         self._result_dir = result_dir
@@ -336,8 +336,8 @@ class Trainer:
         if os.path.isdir(ckpt_dir):
 
             # Get filename of latest checkpoint
-            ckpt_candidates = [util.get_latest_version(ckpt_dir, '_i'),
-                               util.get_latest_version(ckpt_dir, '_e')]
+            ckpt_candidates = [template_utils.get_latest_version(ckpt_dir, '_i'),
+                               template_utils.get_latest_version(ckpt_dir, '_e')]
             if ckpt_candidates[0] is None and ckpt_candidates[1] is None:
                 ckpt_filename = None
             else:
