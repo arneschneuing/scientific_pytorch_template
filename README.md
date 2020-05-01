@@ -62,7 +62,7 @@ Another motivation for the monitor class is to provide a unified treatment of bo
 
 ## Create a new Project
 
-In order to create a new project using the template structure, we provide a script to copy all relevant files to a desired project location. Simply call ```python copy_template.py /path/to/new/project``` from the command line to create your new project structure. A basic stand-alone example is provided which allows you to just run ```train.py --cfg /path/to/config --session "session_name"``` and get an idea of what the output of the framework looks like. In order to start modifying the template, we recommend you to start in ```utilities/build_components.py```. Specify the components you need for your project, check for consistency of tensor shapes and data structures in ```trainers/trainer.py``` and start training!
+In order to create a new project using the template structure, we provide a script to copy all relevant files to a desired project location. Simply call ```python copy_template.py /path/to/new/project``` from the command line to create your new project structure. A basic stand-alone example is provided which allows you to just run ```train.py --cfg /path/to/config --session "session_name"``` and get an idea of what the output of the framework looks like. In order to start modifying the template, we recommend you to start in ```src/build_components.py```. Specify the components you need for your project, check for consistency of tensor shapes and data structures in ```src/core_components/trainer.py``` and start training!
 
 ## Questions and Feedback 
 
