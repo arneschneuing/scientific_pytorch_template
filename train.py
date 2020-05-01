@@ -1,6 +1,6 @@
 import argparse
 
-from src.trainers.controller import Controller
+from src.core_components.controller import Controller
 
 # Argument parser
 parser = argparse.ArgumentParser(description="arg parser")

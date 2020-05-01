@@ -1,6 +1,6 @@
 import os
 import argparse
-from src.utilities.util import safe_copytree
+from src.utilities.template_utils import safe_copytree
 
 # Argument parser
 parser = argparse.ArgumentParser()
