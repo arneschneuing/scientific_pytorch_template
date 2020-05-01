@@ -1,12 +1,10 @@
-import yaml
-import os
 import csv
-from collections import OrderedDict
-from shutil import copyfile, rmtree
+import yaml
 from itertools import product
-from src.utilities.config_iterator import CfgIterator
-from src.trainers.trainer import Trainer
-from src.utilities.util import get_latest_version, copy_code, flatten_cfg
+from shutil import copyfile, rmtree
+from collections import OrderedDict
+from src.utilities.template_utils import *
+from src.core_components.trainer import Trainer
 
 
 class Controller:
@@ -151,6 +149,10 @@ class Controller:
                         param_keys.append(key_prefix + tuple([param_key]))
                     else:
                         param_keys.append(tuple([param_key]))
+                elif not isinstance(param_item, list) and param_key[-1] == "_":
+                    print(f'Error in {self._config_path}. Parameters with '
+                          f'trailing underscore must be lists. Exiting...')
+                    exit()
 
                 # Call function recursively to extract parameter lists at
                 # arbitrary levels of the cfg dict
@@ -180,15 +182,8 @@ class Controller:
 
         # Print information about all experiments if more than a one
         if len(combinations) > 1:
-            for exp_id, combination in enumerate(combinations):
-                param_string = f'Experiment {exp_id+1:<3}'
+            self._print_experiment_overview(param_keys, combinations)
 
-                # Concatenate information about all parameters for current
-                # experiment
-                for param_id in range(len(param_keys)):
-                    param_string += f' | {param_keys[param_id][-1][:-1]}: ' \
-                                    f'{combination[param_id]:<10}'
-                print(param_string)
         print('Start experiments? [y]/n')
         c = input()
         if c == '' or c == 'y':
@@ -201,6 +196,43 @@ class Controller:
         # experiment ID
         return CfgIterator(self._cfg, combinations, param_keys,
                            self._experiment_id - 1)
+
+    @staticmethod
+    def _print_experiment_overview(param_keys, combinations):
+
+        # Set desired number of empty spaces after each parameter
+        n_empty_spaces = 5
+
+        # Get maximum column width for each parameter
+        col_widths = [0] * len(param_keys)
+        for combination_id, combination in enumerate(combinations):
+            for param_id in range(len(param_keys)):
+                name_width = len(str(param_keys[param_id][-1][:-1]))
+                value_width = len(str(combination[param_id]))
+                col_widths[param_id] = max(name_width, value_width,
+                                           col_widths[param_id])
+        col_widths = [col_width + n_empty_spaces for col_width in col_widths]
+
+        # Print parameters for each combination
+        for exp_id, combination in enumerate(combinations):
+
+            # Print header string in first iteration
+            if exp_id == 0:
+                header_string = f'-' * (sum(col_widths) + 10) + f'\n'
+                header_string += f'{"Experiment":<{10 + n_empty_spaces}}'
+                for param_id in range(len(param_keys)):
+                    header_string += \
+                        f'{str(param_keys[param_id][-1][:-1]):<{col_widths[param_id]}}'
+                header_string += f'\n' + f'-' * (sum(col_widths) + 10)
+                print(header_string)
+
+            # Concatenate information about all parameters for current
+            # experiment
+            param_string = f'{exp_id + 1:<{10 + n_empty_spaces}}'
+            for param_id in range(len(param_keys)):
+                param_string += \
+                    f'{str(combination[param_id]):<{col_widths[param_id]}}'
+            print(param_string)
 
     def write_result_file(self, result_dict):
         """
