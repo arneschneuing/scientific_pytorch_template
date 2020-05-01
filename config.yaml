@@ -1,6 +1,6 @@
-batch_size: 32
+batch_size_: [32, 64, 128]
 Optimizer:
-  learning_rate: 0.1
+  learning_rate: 0.01
 LR_Scheduler:
   step_size: 1
   gamma: 0.1
@@ -8,9 +8,10 @@ Logging:
   write_file: True
   write_tb: True
 Misc:
-  num_iterations: 1870
-  val_freq: 1000
-  checkpoint_freq: 1000
+  num_epochs: 3
+  val_freq: 1
+  checkpoint_freq: 2
+  log_freq: 50  # iterations
   copy_code: True
   n_gpu: 1
 
