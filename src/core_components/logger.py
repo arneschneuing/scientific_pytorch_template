@@ -19,12 +19,8 @@ class Logger:
     def __init__(self, log_dir, cfg):
         self.log_dir = log_dir
 
-        if cfg.get('Logging', False):
-            self.write_file = cfg['Logging'].get('write_file', True)
-            self.write_tb = cfg['Logging'].get('write_tb', True)
-        else:
-            self.write_file = False
-            self.write_tb = False
+        self.write_file = cfg.get('write_file', True)
+        self.write_tb = cfg.get('write_tb', False)
 
         # Create log_dir
         os.makedirs(self.log_dir, exist_ok=True)
