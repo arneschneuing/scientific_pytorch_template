@@ -191,9 +191,9 @@ class Trainer:
             self._monitor.register_test_result(test_dict['acc'])
 
         else:
-            self._logger.log_file('Final evaluation not possible as no'
-                                  'test data loader is available. Skipping'
-                                  'Evaluation...')
+            self._logger.log_string('Final evaluation not possible as no'
+                                    'test data loader is available. Skipping'
+                                    'Evaluation...')
 
         # Print summary of the training run
         self._logger.log_string(self._monitor.summary_string())
