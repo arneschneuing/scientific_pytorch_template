@@ -26,7 +26,7 @@ class Monitor:
         self.counter = 0
 
         # Initialization best state for model saving
-        self._best_score = 0
+        self._best_score = None
         self._best_iteration = 0
 
         # Initialize iteration to zero
