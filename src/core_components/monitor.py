@@ -292,7 +292,7 @@ class Monitor:
                                 f'{best_iteration} iterations ' \
                                 + score_string
 
-        if self.counter > self.patience:
+        if self.counter >= self.patience:
             cause_of_stop = f"Training stopped because validation score " \
                             f"did not increase for {self.counter} " \
                             f"validation cycles.\n"
