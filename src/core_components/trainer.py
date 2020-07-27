@@ -43,6 +43,7 @@ class Trainer:
 
         # Resume from checkpoint if possible
         ckpt_path = self._resume_checkpoint()
+        self.last_ckpt = None
 
         if ckpt_path is None:
             # Start new experiment
@@ -144,8 +145,9 @@ class Trainer:
                 self._monitor.register_val_result(val_dict['acc'])
 
                 # Print validation results
-                self._logger.log_string(f'Validation finished with '
-                                        f'score: {val_dict["acc"]:.4g}!')
+                self._logger.log_string(f'Validation finished with:')
+                for key, value in val_dict.items():
+                    self._logger.log_string(f'{key}: {value:.4g}')
 
                 # Print information about early stopping if enabled
                 if self._monitor.early_stopping():
@@ -203,6 +205,8 @@ class Trainer:
 
         return self._monitor.result_dict()
 
+    # Disable gradient taping for validation
+    @torch.no_grad()
     def evaluate(self, split):
 
         # Assert that a valid split is provided
@@ -215,24 +219,21 @@ class Trainer:
         for batch_id, (batch_data, batch_target) in \
                 enumerate(self._data_loaders[split]):
 
-            # Disable gradient taping for validation
-            with torch.no_grad():
+            # Perform forward pass
+            batch_output = self._model(batch_data)
 
-                # Perform forward pass
-                batch_output = self._model(batch_data)
+            # Compute loss
+            loss = self._criterion(batch_output, batch_target)
 
-                # Compute loss
-                loss = self._criterion(batch_output, batch_target)
+            # Update metric tracker
+            self._metric_trackers['eval'].update(batch_output,
+                                                 batch_target, loss)
 
-                # Update metric tracker
-                self._metric_trackers['eval'].update(batch_output,
-                                                     batch_target, loss)
-
-                # Perform validation if scheduled by the monitor
-                if self._monitor.do_logging(it=(batch_id + 1)):
-                    self._logger.log_string(
-                        f'Iteration: {batch_id + 1}/'
-                        f'{len(self._data_loaders[split])}')
+            # Perform validation if scheduled by the monitor
+            if self._monitor.do_logging(it=(batch_id + 1)):
+                self._logger.log_string(
+                    f'Iteration: {batch_id + 1}/'
+                    f'{len(self._data_loaders[split])}')
 
     def _train_it(self):
 
@@ -306,10 +307,20 @@ class Trainer:
         ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
         os.makedirs(ckpt_dir, exist_ok=True)
 
-        # Set filename
+        # Handle different types of checkpoints
         if save_best:
+            # Set filename
             ckpt_path = os.path.join(ckpt_dir, 'best_model.pth')
+
         else:
+            if self._cfg.get('overwrite_checkpoint', False):
+                # Delete last checkpoint before saving the new one
+                if self.last_ckpt is not None:
+                    os.remove(self.last_ckpt)
+                    self._logger.log_string(f'Removing checkpoint: '
+                                            f'{self.last_ckpt}')
+
+            # Set filename
             if self._monitor.epoch_based:
                 epoch = (self._monitor.it + 1) // \
                         len(self._data_loaders['train'])
@@ -317,6 +328,9 @@ class Trainer:
             else:
                 filename = f'ckpt_i{self._monitor.it + 1}.pth'
             ckpt_path = os.path.join(ckpt_dir, filename)
+
+            # Remember checkpoint path
+            self.last_ckpt = ckpt_path
 
         # Save checkpoint
         torch.save(state, ckpt_path)

@@ -87,31 +87,19 @@ class TensorboardWriter:
         # Set tb writer mode
         self._mode = 'train'
 
-        # Supported tensorboard functions
-        self._tb_writer_ftns = {
-            'add_scalar', 'add_scalars', 'add_image', 'add_images',
-            'add_audio', 'add_text', 'add_histogram', 'add_pr_curve',
-            'add_embedding'
-        }
-
     def __getattr__(self, name):
         """
-        Return respective tensorboard function if in list of provided
-        functions. Otherwise, return empty function handle that does nothing.
+        Return respective tensorboard function if available.
+        Otherwise, return empty function handle that does nothing.
         """
 
+        # Get tb function handle
+        add_data = getattr(self.writers[self._mode], name, None)
+
         # Check if requested function is supported
-        if name in self._tb_writer_ftns:
+        if add_data is not None:
+            return add_data
 
-            # Get tb function handle
-            add_data = getattr(self.writers[self._mode], name, None)
-
-            # Return wrapper for tb function
-            def wrapper(tag, data, step, *args, **kwargs):
-                if add_data is not None:
-                    add_data(tag, data, step, *args, **kwargs)
-
-            return wrapper
         else:
             # Default action for returning attributes defined in this class
             try:
