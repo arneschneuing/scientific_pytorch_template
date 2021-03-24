@@ -16,7 +16,7 @@ class Controller:
     configuration.
     """
     def __init__(self, cfg_path, result_dir, session, result_filename,
-                 overwrite):
+                 overwrite, interactive):
         """
         :param cfg_path: string | relative path to the YAML config file
         :param result_dir: string | relative path to the result directory where
@@ -24,7 +24,11 @@ class Controller:
         :param session: string | name of the session
         :param result_filename: string | filename of csv file for result saving
         :param overwrite: bool | overwrite session directory
+        :param interactive: bool | if True, ask for user input; if False, select
+        default values
         """
+        # Set user input mode
+        self._interactive = interactive
 
         # Get ID of next experiment to be performed
         self._experiment_id, self._session_path = \
@@ -61,8 +65,7 @@ class Controller:
             cfg = yaml.safe_load(f)
         return cfg
 
-    @staticmethod
-    def _create_folder_structure(result_dir, session, overwrite):
+    def _create_folder_structure(self, result_dir, session, overwrite):
         """
         Create required directories for the saving of experimental results.
         :param result_dir: string | relative path to result directory
@@ -91,7 +94,8 @@ class Controller:
         if os.path.isdir(session_path) and len(os.listdir(session_path)) > 0:
             print(f'Directory {session_path} already exists. Continue '
                   f'training? [y]/n')
-            c = input()
+
+            c = input() if self._interactive else 'y'
             if c == 'y' or c == '':
                 print(f'Continue experiments in {session_path}.')
             else:
@@ -185,7 +189,7 @@ class Controller:
             self._print_experiment_overview(param_keys, combinations)
 
         print('Start experiments? [y]/n')
-        c = input()
+        c = input() if self._interactive else 'y'
         if c == '' or c == 'y':
             pass
         else:
@@ -295,7 +299,8 @@ class Controller:
             print(f'Schedule experiment {self._experiment_id}!')
 
             # Start training run for current config
-            result_dict = Trainer(experiment_path, cfg).train()
+            result_dict = Trainer(experiment_path, cfg,
+                                  self._interactive).train()
 
             # Add training results to session-level result file
             self.write_result_file(result_dict)

@@ -12,9 +12,13 @@ class Trainer:
     :param result_dir: string | relative path to result dir where all outputs
     are saved
     :param cfg: config dict
+    :param interactive: bool | if True, ask for user input; if False, select
+        default values
     """
 
-    def __init__(self, result_dir, cfg):
+    def __init__(self, result_dir, cfg, interactive):
+        # Set user input mode
+        self._interactive = interactive
 
         # Set experiment-level config
         self._cfg = template_utils.flatten_cfg(cfg)
@@ -219,6 +223,9 @@ class Trainer:
         for batch_id, (batch_data, batch_target) in \
                 enumerate(self._data_loaders[split]):
 
+            batch_data = batch_data.to(self._device)
+            batch_target = batch_target.to(self._device)
+
             # Perform forward pass
             batch_output = self._model(batch_data)
 
@@ -226,8 +233,8 @@ class Trainer:
             loss = self._criterion(batch_output, batch_target)
 
             # Update metric tracker
-            self._metric_trackers['eval'].update(batch_output,
-                                                 batch_target, loss)
+            self._metric_trackers['eval'].update(batch_output, batch_target,
+                                                 loss.item())
 
             # Perform validation if scheduled by the monitor
             if self._monitor.do_logging(it=(batch_id + 1)):
@@ -245,6 +252,8 @@ class Trainer:
 
         # Get batch data from data loader
         batch_data, batch_target = next(self._data_loaders['train'])
+        batch_data = batch_data.to(self._device)
+        batch_target = batch_target.to(self._device)
 
         # Perform forward pass
         batch_output = self._model(batch_data)
@@ -253,7 +262,9 @@ class Trainer:
         loss = self._criterion(batch_output, batch_target)
 
         # Update metric tracker
-        self._metric_trackers['train'].update(batch_output, batch_target, loss)
+        self._metric_trackers['train'].update(batch_output.detach(),
+                                              batch_target.detach(),
+                                              loss.item())
 
         # Perform backward pass
         loss.backward()
@@ -362,7 +373,7 @@ class Trainer:
             if ckpt_filename is not None:
                 print(f'Found checkpoint {ckpt_filename}. '
                       f'Resume/Exit? [r]/e')
-                c = input()
+                c = input() if self._interactive else 'r'
                 if c == 'r' or c == '':
                     return os.path.join(ckpt_dir, ckpt_filename)
                 elif c == 'e':

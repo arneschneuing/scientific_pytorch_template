@@ -186,6 +186,15 @@ def flatten_cfg(cfg):
     return cfg_f
 
 
+def boolean_string(s):
+    if s in {'True', 'true', 'yes', 'y'}:
+        return True
+    elif s in {'False', 'false', 'no', 'n'}:
+        return False
+    else:
+        raise ValueError('Not a valid boolean string')
+
+
 class CfgIterator:
     """
     Iterate over different configurations defined by a set of parameter lists
