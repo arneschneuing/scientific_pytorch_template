@@ -65,10 +65,12 @@ class Trainer:
         else:
 
             # Load state of relevant components
-            model_state_dict, optim_state_dict, self._monitor = \
-                self._load_checkpoint(ckpt_path)
+            model_state_dict, optim_state_dict, self._monitor, \
+                scheduler_state_dict = self._load_checkpoint(ckpt_path)
             self._model.load_state_dict(model_state_dict)
             self._optimizer.load_state_dict(optim_state_dict)
+            if self._lr_scheduler is not None:
+                self._lr_scheduler.load_state_dict(scheduler_state_dict)
 
             # Prepare for next iteration of training
             self._monitor.step()
@@ -117,6 +119,10 @@ class Trainer:
 
                 # Reset metric tracker
                 self._metric_trackers['train'].reset()
+
+            # Update learning rate if scheduled by the monitor
+            if self._lr_scheduler is not None and self._monitor.do_lr_step():
+                self._lr_scheduler.step()
 
             # Perform validation if scheduled by the monitor
             if self._monitor.do_validation():
@@ -167,10 +173,6 @@ class Trainer:
 
                 # Reset metric tracker
                 self._metric_trackers['eval'].reset()
-
-            # Update learning rate if scheduled by the monitor
-            if self._lr_scheduler is not None and self._monitor.do_lr_step():
-                self._lr_scheduler.step()
 
             # Increase monitor's internal iteration counter
             self._monitor.step()
@@ -314,6 +316,9 @@ class Trainer:
                  'optimizer': self._optimizer.state_dict(),
                  'monitor': self._monitor}
 
+        if self._lr_scheduler is not None:
+            state['scheduler'] = self._lr_scheduler.state_dict()
+
         # Create checkpoint path
         ckpt_dir = os.path.join(self._result_dir, 'Checkpoints')
         os.makedirs(ckpt_dir, exist_ok=True)
@@ -394,8 +399,9 @@ class Trainer:
         monitor = checkpoint['monitor']
         model_state_dict = checkpoint['state_dict']
         optim_state_dict = checkpoint['optimizer']
+        scheduler_state_dict = checkpoint.get('scheduler')
 
-        return model_state_dict, optim_state_dict, monitor
+        return model_state_dict, optim_state_dict, monitor, scheduler_state_dict
 
     def get_lr(self):
         """

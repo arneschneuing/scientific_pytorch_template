@@ -80,13 +80,12 @@ def build_criterion(cfg):
 
 
 def build_lr_scheduler(cfg, optimizer):
-    if cfg.get('LR_Scheduler') is None:
-        return None
+    step_size = cfg.get('step_size')
+    gamma = cfg.get('gamma')
+    if step_size and gamma:
+        return StepLR(optimizer, step_size=step_size, gamma=gamma)
     else:
-        step_size = cfg['step_size']
-        gamma = cfg['gamma']
-        return StepLR(optimizer, step_size=step_size, gamma=gamma,
-                      last_epoch=-1)
+        return None
 
 
 def build_metric_trackers(cfg):
